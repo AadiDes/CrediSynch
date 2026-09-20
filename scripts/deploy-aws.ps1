@@ -63,17 +63,22 @@ if (-not $SkipImages) {
     $registry = ($backendRepository -split "/")[0]
     Write-Host "Logging into ECR..." -ForegroundColor Cyan
     aws ecr get-login-password --region $Region | docker login --username AWS --password-stdin $registry
+    if ($LASTEXITCODE -ne 0) { throw "ECR login failed." }
 
     Write-Host "Building and pushing backend image..." -ForegroundColor Cyan
     docker build -t "$backendRepository`:latest" -f backend\Dockerfile .
+    if ($LASTEXITCODE -ne 0) { throw "Backend Docker image build failed." }
     docker push "$backendRepository`:latest"
+    if ($LASTEXITCODE -ne 0) { throw "Backend Docker image push failed." }
 
     Write-Host "Building and pushing trained ML image..." -ForegroundColor Cyan
     if (-not (Test-Path (Join-Path $root "ml-service\models\model.txt"))) {
         throw "Trained model artifact is missing. Run scripts\train-model.ps1 before deploying."
     }
     docker build -t "$mlRepository`:latest" -f ml-service\Dockerfile .\ml-service
+    if ($LASTEXITCODE -ne 0) { throw "ML Docker image build failed." }
     docker push "$mlRepository`:latest"
+    if ($LASTEXITCODE -ne 0) { throw "ML Docker image push failed." }
 }
 
 Write-Host "Refreshing the EC2 services through SSM..." -ForegroundColor Cyan
