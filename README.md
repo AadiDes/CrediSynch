@@ -107,6 +107,12 @@ false-positive-rate ratio across age groups.
 .\scripts\submit-application.ps1 -Scenario replay         # idempotent retry
 ```
 
+### Phase 2 AWS demo
+
+The first AWS deployment path is documented in [`infra/aws/README.md`](infra/aws/README.md). It
+uses RDS PostgreSQL/pgvector, the same Keycloak realm as local development, Caddy, ECR, and an
+SSM-managed EC2 scoring host.
+
 ## Data
 
 The supervised model trains on the Bank Account Fraud (BAF) dataset suite (NeurIPS 2022), which

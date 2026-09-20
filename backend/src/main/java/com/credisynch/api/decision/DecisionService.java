@@ -14,7 +14,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
-import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -159,7 +158,8 @@ public class DecisionService {
                 score.modelVersion(),
                 policyEngine.version(),
                 (System.nanoTime() - startedNanos) / 1_000_000,
-                score.degraded()));
+                score.degraded(),
+                Instant.now()));
 
         if (action.opensCase()) {
             decisions.openCase(UUID.randomUUID(), applicationId, decisionId, action);

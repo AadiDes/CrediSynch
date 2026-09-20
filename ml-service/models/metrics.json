@@ -1,0 +1,18 @@
+{
+  "trained_at": "2026-09-20T22:10:18.969087+00:00",
+  "rows_fit": 675666,
+  "rows_calibration": 119323,
+  "rows_test": 205011,
+  "fraud_rate_test": 0.014038271117159567,
+  "pr_auc": 0.15721719676676246,
+  "roc_auc": 0.8812814632844124,
+  "recall_at_5pct_fpr": 0.4975677553856845,
+  "score_threshold_at_5pct_fpr": 0.044323614754900535,
+  "mean_predicted_probability": 0.010951804962089568,
+  "fairness_age": {
+    "fpr_age_50_plus": 0.1158584934431229,
+    "fpr_under_50": 0.03445669440130386,
+    "ratio": 3.362437850066626
+  },
+  "training_seconds": 10.5
+}

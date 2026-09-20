@@ -1,0 +1,80 @@
+name: Deploy Phase 2 to AWS
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v0.2-decision-core']
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ap-south-1
+  STACK_NAME: credisynch-phase2
+
+jobs:
+  deploy:
+    name: Build and deploy scoring services
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java and package backend
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - run: mvn -B -DskipTests package
+        working-directory: backend
+
+      - name: Configure AWS credentials through GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+
+      - name: Read stack outputs
+        id: stack
+        shell: bash
+        run: |
+          aws cloudformation describe-stacks \
+            --stack-name "$STACK_NAME" \
+            --query 'Stacks[0].Outputs' \
+            --output json > /tmp/outputs.json
+          output() { jq -r --arg key "$1" '.[] | select(.OutputKey == $key) | .OutputValue' /tmp/outputs.json; }
+          echo "backend_repo=$(output BackendRepositoryUri)" >> "$GITHUB_OUTPUT"
+          echo "ml_repo=$(output MlRepositoryUri)" >> "$GITHUB_OUTPUT"
+          echo "instance_id=$(output InstanceId)" >> "$GITHUB_OUTPUT"
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push backend
+        env:
+          IMAGE: ${{ steps.stack.outputs.backend_repo }}:latest
+        run: |
+          docker build -t "$IMAGE" -f backend/Dockerfile .
+          docker push "$IMAGE"
+
+      - name: Build and push trained ML service
+        env:
+          IMAGE: ${{ steps.stack.outputs.ml_repo }}:latest
+        run: |
+          test -f ml-service/models/model.txt
+          docker build -t "$IMAGE" -f ml-service/Dockerfile ml-service
+          docker push "$IMAGE"
+
+      - name: Restart EC2 services through SSM
+        run: |
+          realm_b64=$(sed 's/"sslRequired": "external"/"sslRequired": "none"/g' infra/keycloak/realm-credisynch.json | base64 -w0)
+          command_id=$(aws ssm send-command \
+            --instance-ids '${{ steps.stack.outputs.instance_id }}' \
+            --document-name AWS-RunShellScript \
+            --parameters commands="[\"echo $realm_b64 | base64 -d | sudo tee /opt/credisynch/realm-credisynch.json >/dev/null\",\"sudo /opt/credisynch/deploy.sh\"]" \
+            --query 'Command.CommandId' \
+            --output text)
+          aws ssm wait command-executed \
+            --command-id "$command_id" \
+            --instance-id '${{ steps.stack.outputs.instance_id }}'

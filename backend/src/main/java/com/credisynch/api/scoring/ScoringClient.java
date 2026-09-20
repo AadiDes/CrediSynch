@@ -53,7 +53,7 @@ public class ScoringClient {
                     .retrieve()
                     .body(ScoreResponseBody.class);
             if (body == null || body.fraud_probability() == null) {
-                return ScoreResult.degraded();
+                return ScoreResult.degradedResult();
             }
             List<ReasonCode> reasons = body.reason_codes() == null ? List.of()
                     : body.reason_codes().stream()
@@ -65,7 +65,7 @@ public class ScoringClient {
                     reasons, body.model_version(), false);
         } catch (Exception e) {
             log.warn("Model service unavailable, degrading decision: {}", e.getMessage());
-            return ScoreResult.degraded();
+            return ScoreResult.degradedResult();
         }
     }
 }

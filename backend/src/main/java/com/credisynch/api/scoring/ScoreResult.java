@@ -11,9 +11,17 @@ public record ScoreResult(
         boolean degraded) {
 
     /** Used when the model service is unreachable: no score, conservative handling downstream. */
-    public static ScoreResult degraded() {
-        return new ScoreResult(Double.NaN, 0.0, List.of(
-                new ReasonCode("MODEL_UNAVAILABLE", "model_service", 0.0, "INCREASES_RISK")),
-                "unavailable", true);
+    public static ScoreResult degradedResult() {
+        return new ScoreResult(
+                Double.NaN,
+                0.0,
+                List.of(
+                        new ReasonCode(
+                                "MODEL_UNAVAILABLE",
+                                "model_service",
+                                0.0,
+                                "INCREASES_RISK")),
+                "unavailable",
+                true);
     }
 }

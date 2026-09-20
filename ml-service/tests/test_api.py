@@ -10,7 +10,10 @@ def test_health_reports_model_state():
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "UP"
-    assert body["model_loaded"] is False
+    if body["model_loaded"]:
+        assert body["model_version"].startswith("lgbm-")
+    else:
+        assert body["model_version"] == "stub-0.1.0"
 
 
 def test_score_returns_contract_fields():
@@ -20,7 +23,8 @@ def test_score_returns_contract_fields():
     assert 0.0 <= body["fraud_probability"] <= 1.0
     assert 0.0 <= body["novelty_score"] <= 1.0
     assert body["reason_codes"]
-    assert body["placeholder"] is True
+    model_loaded = client.get("/health").json()["model_loaded"]
+    assert body["placeholder"] is (not model_loaded)
 
 
 def test_score_is_deterministic_for_the_same_application():
