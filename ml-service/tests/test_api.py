@@ -38,3 +38,10 @@ def test_reason_codes_are_ordered_by_absolute_contribution():
     body = client.post("/score", json={"application_id": "app-xyz"}).json()
     contributions = [abs(r["contribution"]) for r in body["reason_codes"]]
     assert contributions == sorted(contributions, reverse=True)
+
+
+def test_health_and_score_agree_on_model_state():
+    """Health and every score response must tell the same story about whether a model is loaded."""
+    health = client.get("/health").json()
+    scored = client.post("/score", json={"application_id": "app-state"}).json()
+    assert health["model_loaded"] == (not scored["placeholder"])
