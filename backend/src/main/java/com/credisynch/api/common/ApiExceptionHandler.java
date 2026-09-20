@@ -1,13 +1,15 @@
 package com.credisynch.api.common;
-
-import jakarta.servlet.http.HttpServletRequest;
 import java.net.URI;
 import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * RFC 7807 problem responses. Validation failures list the offending fields;
@@ -34,6 +36,15 @@ public class ApiExceptionHandler {
         problem.setType(URI.create("https://credisynch.dev/problems/invalid-request"));
         problem.setTitle("Invalid request");
         problem.setDetail(ex.getMessage());
+        return problem;
+    }
+
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    ProblemDetail onAccessDenied(AuthorizationDeniedException ex) {
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.FORBIDDEN);
+        problem.setType(URI.create("https://credisynch.dev/problems/access-denied"));
+        problem.setTitle("Access denied");
+        problem.setDetail("You do not have permission to access this resource.");
         return problem;
     }
 

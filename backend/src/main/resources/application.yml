@@ -4,7 +4,7 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/credisynch}
     username: ${DB_USER:credisynch}
-    password: ${DB_PASSWORD:devpassword}
+    password: ${DB_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: validate
