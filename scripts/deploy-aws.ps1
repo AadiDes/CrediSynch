@@ -34,11 +34,16 @@ aws cloudformation deploy `
         "EnvironmentName=$StackName" `
         "PublicHost=$PublicHost"
 
-$outputs = @(aws cloudformation describe-stacks --region $Region --stack-name $StackName --query "Stacks[0].Outputs" --output json | ConvertFrom-Json)
 function Get-Output([string]$key) {
-    $match = $outputs | Where-Object { $_.OutputKey -eq $key }
-    if (-not $match) { throw "CloudFormation output '$key' was not found." }
-    return $match.OutputValue
+    $value = aws cloudformation describe-stacks `
+        --region $Region `
+        --stack-name $StackName `
+        --query "Stacks[0].Outputs[?OutputKey=='$key'].OutputValue | [0]" `
+        --output text
+    if ([string]::IsNullOrWhiteSpace($value) -or $value -eq "None") {
+        throw "CloudFormation output '$key' was not found."
+    }
+    return $value.Trim()
 }
 
 $backendRepository = Get-Output "BackendRepositoryUri"
@@ -85,14 +90,23 @@ $remoteCommands = @(
     "sudo /opt/credisynch/deploy.sh"
 )
 $ssmParameters = @{ commands = $remoteCommands } | ConvertTo-Json -Compress
-$commandId = aws ssm send-command `
-    --region $Region `
-    --instance-ids $instanceId `
-    --document-name AWS-RunShellScript `
-    --comment "CrediSynch Phase 2 deploy" `
-    --parameters $ssmParameters `
-    --query "Command.CommandId" `
-    --output text
+$ssmParametersPath = Join-Path $env:TEMP "credisynch-ssm-$([Guid]::NewGuid()).json"
+try {
+    # Passing JSON through a native PowerShell argument strips its quotes. A file:// parameter
+    # preserves the JSON exactly for the AWS CLI.
+    Set-Content -LiteralPath $ssmParametersPath -Value $ssmParameters -Encoding ascii
+    $commandId = aws ssm send-command `
+        --region $Region `
+        --instance-ids $instanceId `
+        --document-name AWS-RunShellScript `
+        --comment "CrediSynch Phase 2 deploy" `
+        --parameters "file://$ssmParametersPath" `
+        --query "Command.CommandId" `
+        --output text
+} finally {
+    Remove-Item -LiteralPath $ssmParametersPath -Force -ErrorAction SilentlyContinue
+}
+if ([string]::IsNullOrWhiteSpace($commandId)) { throw "SSM deployment command was not created." }
 
 for ($i = 0; $i -lt 60; $i++) {
     Start-Sleep -Seconds 5
