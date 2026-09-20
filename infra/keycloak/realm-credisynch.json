@@ -1,0 +1,60 @@
+{
+  "realm": "credisynch",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "accessTokenLifespan": 1800,
+  "roles": {
+    "realm": [
+      { "name": "APPLICANT", "description": "Customer applying for credit" },
+      { "name": "ANALYST", "description": "Fraud analyst: reads cases, submits labels" },
+      { "name": "ADMIN", "description": "Platform admin: model registry, configuration" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "credisynch-web",
+      "name": "CrediSynch Web",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["http://localhost:5173/*", "http://localhost:4173/*"],
+      "webOrigins": ["http://localhost:5173", "http://localhost:4173"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5173/*##http://localhost:4173/*"
+      }
+    }
+  ],
+  "users": [
+    {
+      "username": "analyst",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Asha",
+      "lastName": "Analyst",
+      "credentials": [{ "type": "password", "value": "analyst123", "temporary": false }],
+      "realmRoles": ["ANALYST"]
+    },
+    {
+      "username": "applicant",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Arun",
+      "lastName": "Applicant",
+      "credentials": [{ "type": "password", "value": "applicant123", "temporary": false }],
+      "realmRoles": ["APPLICANT"]
+    },
+    {
+      "username": "platform-admin",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Priya",
+      "lastName": "Admin",
+      "credentials": [{ "type": "password", "value": "admin123", "temporary": false }],
+      "realmRoles": ["ADMIN"]
+    }
+  ]
+}

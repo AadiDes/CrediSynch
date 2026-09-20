@@ -1,0 +1,10 @@
+# Installed from phase 2 onwards (training + graph + novelty). Kept separate so the
+# service image and CI stay fast while the API contract is being built.
+-r requirements.txt
+numpy==2.2.1
+pandas==2.2.3
+scikit-learn==1.6.0
+lightgbm==4.5.0
+shap==0.46.0
+networkx==3.4.2
+joblib==1.4.2

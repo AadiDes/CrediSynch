@@ -1,0 +1,25 @@
+# build output
+target/
+dist/
+build/
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+# local config & secrets
+.env
+.env.local
+*.pem
+*.p12
+# data (never commit the dataset - non-commercial licence, large)
+data/
+*.csv
+*.parquet
+models/*.txt
+models/*.pkl
+# ide / os
+.idea/
+.vscode/
+*.iml
+.DS_Store

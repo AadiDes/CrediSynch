@@ -1,0 +1,53 @@
+spring:
+  application:
+    name: credisynch-api
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/credisynch}
+    username: ${DB_USER:credisynch}
+    password: ${DB_PASSWORD:devpassword}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${OIDC_ISSUER_URI:http://localhost:8081/realms/credisynch}
+
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-stacktrace: never
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: credisynch-api
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:4173}
+  ml:
+    base-url: ${ML_BASE_URL:http://localhost:8000}
+
+logging:
+  level:
+    root: INFO
+    com.credisynch: DEBUG
