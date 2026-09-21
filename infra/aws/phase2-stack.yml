@@ -16,6 +16,13 @@ Parameters:
   DbInstanceClass:
     Type: String
     Default: db.t3.micro
+  LlmProvider:
+    Type: String
+    Default: bedrock
+    AllowedValues: [bedrock, gemini]
+    Description: >
+      ADR 0005: "AWS Bedrock or equivalent LLM service". gemini is a temporary substitute while
+      Bedrock model access is pending on this account; switching back is this parameter, not code.
 
 Resources:
   Vpc:
@@ -216,6 +223,9 @@ Resources:
                   - !Ref DatabaseSecret
                   - !Ref EntityHashSecret
                   - !Ref KeycloakAdminSecret
+                  # Created out of band (a real API key isn't something to generate), not a CFN
+                  # resource here - wildcard suffix because Secrets Manager appends a random one.
+                  - !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${EnvironmentName}/gemini-api-key-*'
               - Effect: Allow
                 Action:
                   - logs:CreateLogStream
@@ -316,6 +326,8 @@ Resources:
                 ML_BASE_URL: http://127.0.0.1:8000
                 CORS_ALLOWED_ORIGINS: '*'
                 AWS_REGION: '${AWS::Region}'
+                LLM_PROVIDER: '${LlmProvider}'
+                GEMINI_API_KEY: $GEMINI_API_KEY
               logging:
                 driver: awslogs
                 options:
@@ -377,6 +389,9 @@ Resources:
           export ENTITY_HASH_KEY=$(aws secretsmanager get-secret-value --region "$REGION" --secret-id '${EntityHashSecret}' --query SecretString --output text)
           export KEYCLOAK_ADMIN_PASSWORD=$(aws secretsmanager get-secret-value --region "$REGION" --secret-id '${KeycloakAdminSecret}' --query SecretString --output text)
           export CADDY_SITE='${PublicHost}'
+          # Created out of band (not a CFN resource - see the IAM comment above); absent when
+          # running as bedrock, so failure here must not fail the whole deploy.
+          export GEMINI_API_KEY=$(aws secretsmanager get-secret-value --region "$REGION" --secret-id '${EnvironmentName}/gemini-api-key' --query SecretString --output text 2>/dev/null || echo '')
           aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin '${BackendRepository.RepositoryUri}'
           docker compose -f /opt/credisynch/docker-compose.yml pull
           docker compose -f /opt/credisynch/docker-compose.yml up -d
