@@ -6,7 +6,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 /** Strongly typed application configuration. Secrets are injected from the environment. */
 @ConfigurationProperties(prefix = "app")
 public record AppProperties(
-        Cors cors, Ml ml, Hashing hashing, Policy policy, Graph graph, Restricted restricted, Bedrock bedrock) {
+        Cors cors, Ml ml, Hashing hashing, Policy policy, Graph graph, Restricted restricted, Bedrock bedrock,
+        Llm llm) {
 
     public record Cors(List<String> allowedOrigins) {}
 
@@ -53,4 +54,12 @@ public record AppProperties(
      * Nova through on-demand inference profiles, confirmed against the live account.
      */
     public record Bedrock(String briefModelId, String embeddingModelId) {}
+
+    /**
+     * Provider selection for the brief/embedding adapters (ADR 0005: "AWS Bedrock or equivalent
+     * LLM service"). "bedrock" (default) uses Nova/Titan; "gemini" uses the Gemini API as a
+     * temporary substitute while AWS Bedrock access is pending on this account - switching back
+     * is a config change, not a code change, since both sides implement the same interfaces.
+     */
+    public record Llm(String provider, String geminiApiKey, String geminiBriefModel, String geminiEmbeddingModel) {}
 }

@@ -2,7 +2,6 @@ package com.credisynch.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.credisynch.api.cases.CaseNarrativeGenerator;
 import com.credisynch.api.cases.CaseNarrativeGenerator.Context;
 import com.credisynch.api.cases.CaseNarrativeGenerator.Narrative;
 import com.credisynch.api.cases.CaseNarrativeGenerator.ReasonCodeView;
@@ -15,7 +14,7 @@ import org.junit.jupiter.api.Test;
 
 class TemplateCaseNarrativeGeneratorTest {
 
-    private final CaseNarrativeGenerator generator = new TemplateCaseNarrativeGenerator();
+    private final TemplateCaseNarrativeGenerator generator = new TemplateCaseNarrativeGenerator();
 
     @Test
     @DisplayName("always produces a brief - the whole point of the degraded-mode template")

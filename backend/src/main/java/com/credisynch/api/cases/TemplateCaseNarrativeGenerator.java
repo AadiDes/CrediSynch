@@ -1,5 +1,8 @@
 package com.credisynch.api.cases;
 
+import com.credisynch.api.cases.CaseNarrativeGenerator.Context;
+import com.credisynch.api.cases.CaseNarrativeGenerator.Narrative;
+import com.credisynch.api.cases.CaseNarrativeGenerator.ReasonCodeView;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -7,20 +10,20 @@ import org.springframework.stereotype.Component;
 
 /**
  * The documented degraded mode (docs/architecture.md: "Bedrock unavailable | Template-generated
- * brief") is also the default here, since no Bedrock access is provisioned for this deployment.
- * Deterministic, no external call, and grounded in exactly the two things ADR 0005 allows a brief
- * to cite: reason codes and graph evidence - never applicant free text.
+ * brief"), and every LLM provider's own failure path. Deterministic, no external call, and
+ * grounded in exactly the two things ADR 0005 allows a brief to cite: reason codes and graph
+ * evidence - never applicant free text.
  *
- * A real Bedrock-backed generator can replace this later by defining another
- * {@code CaseNarrativeGenerator} bean marked {@code @Primary}; nothing else in the case pipeline
- * changes.
+ * Deliberately does NOT implement {@link CaseNarrativeGenerator}: it is never injected as "the"
+ * generator (that ambiguity is exactly what broke Spring startup once already), only ever wrapped
+ * by whichever provider is active - see {@link BedrockCaseNarrativeGenerator} and
+ * {@link GeminiCaseNarrativeGenerator}, which fall back to it by concrete-class reference.
  */
 @Component
-public class TemplateCaseNarrativeGenerator implements CaseNarrativeGenerator {
+public class TemplateCaseNarrativeGenerator {
 
     private static final String MODEL_LABEL = "template-v1";
 
-    @Override
     public Optional<Narrative> generate(Context context) {
         StringBuilder brief = new StringBuilder();
         brief.append(context.action());

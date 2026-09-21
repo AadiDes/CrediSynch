@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
 import com.credisynch.api.cases.BedrockCaseNarrativeGenerator;
+import com.credisynch.api.cases.CaseBriefPrompt;
 import com.credisynch.api.cases.CaseNarrativeGenerator.Context;
 import com.credisynch.api.cases.CaseNarrativeGenerator.Narrative;
 import com.credisynch.api.cases.CaseNarrativeGenerator.ReasonCodeView;
@@ -35,8 +36,9 @@ class BedrockCaseNarrativeGeneratorTest {
                 new AppProperties.Policy("policy-test", 1500.0, 3.0, 0.8, 5.0, 0.1, 150.0),
                 new AppProperties.Graph(720, 1, 3),
                 new AppProperties.Restricted(50000, 3, 90, 0.45),
-                new AppProperties.Bedrock("apac.amazon.nova-lite-v1:0", "amazon.titan-embed-text-v2:0"));
-        return new BedrockCaseNarrativeGenerator(bedrock, template, new ObjectMapper(), properties);
+                new AppProperties.Bedrock("apac.amazon.nova-lite-v1:0", "amazon.titan-embed-text-v2:0"),
+                new AppProperties.Llm("bedrock", null, "gemini-2.5-flash", "gemini-embedding-001"));
+        return new BedrockCaseNarrativeGenerator(bedrock, template, new CaseBriefPrompt(), new ObjectMapper(), properties);
     }
 
     private Context context() {

@@ -7,14 +7,20 @@ import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.bedrockruntime.BedrockRuntimeClient;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelRequest;
 import software.amazon.awssdk.services.bedrockruntime.model.InvokeModelResponse;
 
-/** Titan Text Embeddings V2, fixed at 1024 dimensions (ADR 0003) - invoked directly, no cross-region profile needed. */
+/**
+ * Titan Text Embeddings V2, fixed at 1024 dimensions (ADR 0003) - invoked directly, no cross-region
+ * profile needed. Active when {@code app.llm.provider} is "bedrock" (the default); see
+ * {@link GeminiEmbeddingClient} for the substitute provider.
+ */
 @Component
+@ConditionalOnProperty(name = "app.llm.provider", havingValue = "bedrock", matchIfMissing = true)
 public class BedrockTitanEmbeddingClient implements EmbeddingClient {
 
     private static final Logger log = LoggerFactory.getLogger(BedrockTitanEmbeddingClient.class);

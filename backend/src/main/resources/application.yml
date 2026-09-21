@@ -57,6 +57,11 @@ app:
   bedrock:
     brief-model-id: apac.amazon.nova-lite-v1:0     # inference profile; ap-south-1 has no direct Nova invoke
     embedding-model-id: amazon.titan-embed-text-v2:0
+  llm:
+    provider: ${LLM_PROVIDER:bedrock}   # bedrock (default) or gemini - see AppProperties.Llm
+    gemini-api-key: ${GEMINI_API_KEY:}
+    gemini-brief-model: gemini-2.5-flash
+    gemini-embedding-model: gemini-embedding-001
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:4173}
   ml:
