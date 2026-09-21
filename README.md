@@ -3,12 +3,35 @@
 Real-time fraud detection and prevention for digital lending — a working prototype built for the
 Synchrony technology hackathon (problem statement 1).
 
+**Live demo:** http://13.200.182.78 — see [Demo identities](#demo-identities) below for logins,
+and [`docs/DEMO.md`](docs/DEMO.md) for a guided click-through.
+
 CrediSynch decides a credit application in one synchronous call, then explains and learns
 asynchronously. Its distinguishing idea: **application fraud is a graph problem wearing a tabular
 costume**. A single application can look clean while five applications sharing one device, three
 phone numbers and a bank account are obviously a ring. CrediSynch scores the application *and* the
 linkage, then chooses the cheapest action that contains the risk, instead of declining a customer
 outright.
+
+## Architecture
+
+```
+React console (Redux Toolkit)
+        |  bearer JWT (Keycloak OIDC)
+        v
+Spring Boot decision API  --HTTP-->  FastAPI model service (LightGBM, SHAP, graph, novelty)
+        |                                   |
+        |  JDBC                             |
+        v                                   v
+PostgreSQL + pgvector  <----------  batch jobs (Spring Batch -> Python: rings, retraining)
+        ^
+        |  async, off the hot path
+Gemini (briefs + embeddings) -- app.llm.provider=bedrock switches to AWS Bedrock (Nova + Titan),
+                                 same interfaces, no code change - see "LLM provider" below
+```
+
+Full rationale in [`docs/architecture.md`](docs/architecture.md); each individual decision is a
+dated ADR in [`docs/adr/`](docs/adr/).
 
 ## Decision pipeline
 
@@ -32,10 +55,13 @@ and never makes the decision.
 api/openapi.yaml     API contract, written before the implementation
 backend/             Spring Boot 3 (Java 21): decision API, security, policy engine
 ml-service/          FastAPI (Python 3.12): scoring, reason codes, graph features, novelty
+ml-service/findings/ Phase 5 findings pipeline - every number in docs/FINDINGS.md is reproducible from here
 frontend/            React + Redux Toolkit analyst console
-infra/               docker-compose: Postgres + pgvector, Keycloak (realm import)
-scripts/             PowerShell helpers: dev-up, verify, get-token, run-*
+infra/               docker-compose (local) and CloudFormation (AWS) - Postgres + pgvector, Keycloak
+scripts/             PowerShell helpers: dev-up, verify, get-token, run-*, deploy-aws
 docs/adr/            Architecture decision records
+docs/FINDINGS.md     Phase 5: model quality, fairness, policy calibration, graph/latency/LLM-safety findings
+docs/DEMO.md         Guided click-through of the live demo
 ```
 
 ## Prerequisites
@@ -74,9 +100,29 @@ Copy-Item .env.example .env          # local dev values only; never commit .env
 | `analyst` | `analyst123` | ANALYST | Case queue, case detail, labels |
 | `platform-admin` | `admin123` | ADMIN | Platform status, model registry, actuator |
 
-These are local development credentials for a disposable Keycloak realm. Nothing in this repository
-is a real secret: configuration comes from the environment, AWS access comes from `aws login`
-locally and an instance role in the cloud, and CI scans every push for leaked credentials.
+The same three users work against the live demo above - it's the same realm, imported unchanged.
+All synthetic: nothing in this repository is a real secret or a real person's data. Configuration
+comes from the environment, AWS access comes from `aws login` locally and an instance role in the
+cloud, and CI scans every push for leaked credentials.
+
+## LLM provider
+
+The analyst brief (case detail) and the similar-case/merchant-descriptor embeddings are behind two
+provider-agnostic interfaces (`CaseNarrativeGenerator`, `EmbeddingClient`), each with a
+Bedrock implementation and a Gemini implementation. One property picks which is active:
+
+```
+app.llm.provider: bedrock   # default - AWS Bedrock (Nova for briefs, Titan for embeddings)
+app.llm.provider: gemini    # Gemini API - what the live demo runs on right now
+```
+
+Set via `LLM_PROVIDER` (env) or `app.llm.provider` (`application.yml`). **The live demo runs on
+Gemini** because this AWS account's Bedrock model access is pending an account review with an
+unpredictable timeline (see [`docs/FINDINGS.md`](docs/FINDINGS.md#module-a-vector-descriptor-matching)
+and the Limitations section there) - not a code or architecture gap. Both providers implement
+exactly the same contract, fall back to a deterministic template brief on any failure
+(`docs/architecture.md`'s documented degraded mode), and are covered by the same test suite with
+the provider mocked out. Switching is the one config line above; nothing else changes.
 
 ## Testing
 
@@ -89,15 +135,20 @@ cd frontend;   npm run build
 
 ## Training the model
 
+The trained model is already committed under `ml-service/models/` (booster, isotonic calibrator,
+feature spec, `metrics.json`) - a fresh clone runs the real model immediately, no training step
+required. Retrain only to reproduce the findings or to pick up a new copy of the dataset:
+
 ```powershell
-.\scripts\train-model.ps1 -Data C:\data\baf\Base.csv   # ~2-5 minutes
+.\scripts\train-model.ps1 -Data C:\data\baf\Base.csv   # ~10-15 seconds
 # restart run-ml.ps1; /health then reports modelLoaded: true and every score stops being a stub
+
+# Fairness ablation (docs/FINDINGS.md, finding b): retrain without customer_age as an input
+cd ml-service; .\.venv\Scripts\python.exe training\train_baf.py --data C:\data\baf\Base.csv --out models_no_age --exclude-age
 ```
 
-Training writes `ml-service/models/` (git-ignored): the booster, the isotonic calibrator, the
-feature spec and `metrics.json`. The metrics file is the source for the findings slide: PR-AUC,
-recall at a 5% false-positive budget, the score threshold that budget implies, and the
-false-positive-rate ratio across age groups.
+`metrics.json` is the source for the findings doc: PR-AUC, recall at a 5% false-positive budget,
+the score threshold that budget implies, and the false-positive-rate ratio across age groups.
 
 ## Trying a decision
 
@@ -107,11 +158,28 @@ false-positive-rate ratio across age groups.
 .\scripts\submit-application.ps1 -Scenario replay         # idempotent retry
 ```
 
-### Phase 2 AWS demo
+### AWS deployment
 
-The first AWS deployment path is documented in [`infra/aws/README.md`](infra/aws/README.md). It
-uses RDS PostgreSQL/pgvector, the same Keycloak realm as local development, Caddy, ECR, and an
-SSM-managed EC2 scoring host.
+The live demo above runs on the stack documented in
+[`infra/aws/README.md`](infra/aws/README.md): RDS PostgreSQL/pgvector, the same Keycloak realm as
+local development, Caddy, ECR, and an SSM-managed EC2 host running all four services
+(`docker compose`). Deploy/redeploy with `scripts/deploy-aws.ps1`.
+
+## Findings
+
+Full detail, every number reproducible from a committed script, in
+[`docs/FINDINGS.md`](docs/FINDINGS.md).
+
+| Finding | Result |
+|---|---|
+| Model quality (temporal test split) | PR-AUC 0.157, ROC-AUC 0.881, recall 49.8% @ 5% FPR |
+| Fairness ablation (drop `customer_age`) | Costs 8.7% relative recall; disparity only 3.36x -> 2.53x - proxies persist, kept age |
+| Policy action mix | `APPROVE_RESTRICTED` captures 73% of test-set fraud - cost model working as designed |
+| Graph linkage | 25% of synthetic ring members escalated by shared-identity evidence alone; ring detector: 1.00 precision/recall |
+| Latency, live, 20 req/s for 2 min | Pipeline p95 **53ms** (4.7x under the 250ms budget), 0 failures across 4,800+ requests |
+| LLM safety | 6/6 injection payloads caught, 8/8 briefs grounded (0 hallucinated features) |
+| LLM brief latency | p50 7.4s - too slow for a snappy console; a concrete, not-yet-built fix is identified |
+| VECTOR descriptor matching | Implemented, unit-tested, deployed; live backfill blocked by a Gemini free-tier daily quota - degrades to trigram with no correctness impact |
 
 ## Data
 
@@ -132,8 +200,33 @@ addresses) is synthetic and generated by this repository.
 
 ## Status
 
-Phases 1 and 2 are complete: contract, schema, identity and authorisation; then the decision core -
-rule chain, calibrated model with reason codes, cost-based policy bands, idempotent submission,
-append-only decision log and audit trail, with metrics exported to Prometheus. Phase 3 adds the
-graph stage and restricted approvals, phase 4 the AI layer and analyst console, phase 5 the
-findings. See `docs/adr/` for why each choice was made.
+All five phases are complete and live at the demo URL above:
+
+- **Phase 1** - contract, schema, identity and authorisation.
+- **Phase 2** - decision core: rule chain, calibrated model with reason codes, cost-based policy
+  bands, idempotent submission, append-only decision log and audit trail, metrics on Prometheus.
+- **Phase 3** - graph linkage stage (shared-identity floor) and restricted approvals (Module A:
+  merchant-locked cards, velocity caps, customer confirmation).
+- **Phase 4** - the AI layer (analyst brief + similar-case embeddings, Bedrock/Gemini-switchable)
+  and the analyst console (case queue, detail, labels).
+- **Phase 5** - findings (model quality, fairness, policy calibration, graph/latency/LLM-safety)
+  and VECTOR descriptor matching. See [`docs/FINDINGS.md`](docs/FINDINGS.md).
+
+See `docs/adr/` for why each choice was made.
+
+## Known limitations
+
+The full list with numbers behind each is in
+[`docs/FINDINGS.md`](docs/FINDINGS.md#g-limitations). In short:
+
+- **AWS Bedrock is pending an account review**, not broken - the live demo runs on Gemini; both
+  implementations exist, are tested, and are one config line apart.
+- **Fairness is diagnosed, not solved.** Dropping `customer_age` costs real recall and only
+  partially closes the false-positive disparity; other features proxy for it.
+- **The analyst brief is slow to generate live** (p50 ~7s) and is not yet cached, though the
+  schema already has the columns for it.
+- **VECTOR merchant matching** is implemented and deployed but its one-time catalog backfill is
+  currently blocked by a Gemini free-tier daily quota; the system runs correctly on trigram in the
+  meantime and the backfill completes automatically once the quota resets.
+- **Graph-ring and BAF-as-lending-proxy caveats** - see the findings doc for the honest version of
+  both.

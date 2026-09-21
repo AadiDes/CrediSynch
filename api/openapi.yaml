@@ -319,7 +319,7 @@ components:
         items:
           type: array
           items: { $ref: '#/components/schemas/CaseSummary' }
-        nextCursor: { type: string, nullable: true }
+        nextCursor: { type: [string, "null"] }
     CaseSummary:
       type: object
       properties:
@@ -329,7 +329,7 @@ components:
         priority: { type: integer }
         action: { type: string }
         fraudProbability: { type: number }
-        ringId: { type: string, format: uuid, nullable: true }
+        ringId: { type: [string, "null"], format: uuid }
         openedAt: { type: string, format: date-time }
     CaseDetail:
       allOf:
@@ -343,7 +343,7 @@ components:
               type: array
               items: { type: string, format: uuid }
             ring: { $ref: '#/components/schemas/Ring' }
-            brief: { type: string, description: LLM-written analyst brief, grounded on reason codes and graph evidence }
+            brief: { type: string, description: "LLM-written analyst brief, grounded on reason codes and graph evidence" }
             briefModel: { type: string }
             similarCases:
               type: array
@@ -380,8 +380,8 @@ components:
       properties:
         transactionId: { type: string, format: uuid }
         outcome: { type: string, enum: [APPROVED, DECLINED_LOCK, DECLINED_VELOCITY, DECLINED_RISK, CONFIRM_PENDING] }
-        matchedPartnerId: { type: string, nullable: true }
+        matchedPartnerId: { type: [string, "null"] }
         matchScore: { type: number }
         matchMethod: { type: string, enum: [EXACT, VECTOR, TRIGRAM, NONE] }
-        confirmationId: { type: string, format: uuid, nullable: true }
+        confirmationId: { type: [string, "null"], format: uuid }
         reason: { type: string }
