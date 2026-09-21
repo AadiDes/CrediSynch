@@ -31,6 +31,7 @@
   "users": [
     {
       "username": "analyst",
+      "email": "analyst@credisynch.example",
       "enabled": true,
       "emailVerified": true,
       "firstName": "Asha",
@@ -40,6 +41,7 @@
     },
     {
       "username": "applicant",
+      "email": "applicant@credisynch.example",
       "enabled": true,
       "emailVerified": true,
       "firstName": "Arun",
@@ -49,6 +51,7 @@
     },
     {
       "username": "platform-admin",
+      "email": "platform-admin@credisynch.example",
       "enabled": true,
       "emailVerified": true,
       "firstName": "Priya",
