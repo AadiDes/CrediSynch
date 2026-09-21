@@ -223,6 +223,10 @@ See `docs/adr/` for why each choice was made.
 The full list with numbers behind each is in
 [`docs/FINDINGS.md`](docs/FINDINGS.md#g-limitations). In short:
 
+- **Step-up authentication is decided and labelled, not enforced.** The policy engine correctly
+  returns `STEP_UP` and the `acr` claim is exposed on `/me`, but nothing connects the two yet - no
+  Keycloak re-authentication flow, no backend enforcement of an elevated claim. See the findings
+  doc for what closing this actually needs.
 - **AWS Bedrock is pending an account review**, not broken - the live demo runs on Gemini; both
   implementations exist, are tested, and are one config line apart.
 - **Fairness is diagnosed, not solved.** Dropping `customer_age` costs real recall and only

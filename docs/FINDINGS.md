@@ -236,6 +236,18 @@ which is exactly why the design keeps both rather than picking one.
 
 ## g. Limitations
 
+- **Step-up authentication is decided and labelled, not enforced.** ADR 0001 names risk-based
+  step-up as one of three pillars of this solution, alongside the decision engine and the graph
+  stage. Today the policy engine correctly returns `STEP_UP` with a friendly message, and the `acr`
+  claim is correctly exposed read-only on `/me` - but nothing connects the two. No code redirects
+  to Keycloak with a higher `acr_values` when a decision comes back `STEP_UP`, no endpoint checks
+  the caller's `acr` against a required level before finalizing anything, and the realm has no
+  conditional-OTP or ACR-to-LOA configuration at all. As shipped, `STEP_UP` functions as a UI
+  message, not the preventive control ADR 0001 describes. Closing this needs a Keycloak conditional
+  browser flow, frontend logic to redirect with `acr_values` on a `STEP_UP` response, and backend
+  enforcement of the elevated claim before the action completes - realistically 1-2 days, not a
+  quick patch. Not attempted here; recorded as the clearest gap between this project's stated
+  architecture and its implementation.
 - **Synthetic rings.** Finding (d)'s perfect precision/recall is on rings this project generated
   (one clean shared device, zero overlap) - a best case. Real fraud rings share identifiers more
   ambiguously and overlap with legitimate applications; the detector is unvalidated against that.
