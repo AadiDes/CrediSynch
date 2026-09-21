@@ -21,8 +21,20 @@ actually built and tested, honest about the one real gap, not a pitch that overs
 
 ## Before you hit record
 
-The stack is already running (confirmed: backend, ml-service, frontend and Keycloak all healthy).
-Just do these two things.
+Done already, this pass: a full clean run. Both containers were torn down with their volume,
+brought back up fresh, and all three app services restarted in their own visible terminal windows
+(backend, ml-service, frontend, left running so you can show them on camera). The three
+pipeline-demo scenarios were run once each to confirm they behave as expected on a truly empty
+database, one ring was seeded, and two cases were pre-warmed so their briefs load instantly. Real
+numbers, confirmed just now:
+
+- `clean` came back `STEP_UP`, `graphRisk: 0.0`, `rulesFired: []`.
+- `injection` came back `REVIEW`, `rulesFired: ["PROMPT_INJECTION_ATTEMPT"]`.
+- `replay`'s second call printed `PASS`.
+- 5 rings seeded, every one size 4, density 1.0, zero cross-contamination.
+- Two cases pre-warmed and cached: the injection case, and one ring case.
+
+**You only need to do two things before recording:**
 
 **1. Open two browser sessions.** Keycloak sessions are per browser profile. Use a normal window
 for `analyst`, and an incognito/private window for `platform-admin`, so you are not logging in and
@@ -32,21 +44,12 @@ out on camera.
 - `README.md`, scrolled to the architecture diagram
 - `api/openapi.yaml`, scrolled to the `/api/v1/applications` path
 - `docs/FINDINGS.md`, scrolled to the top of the findings section
-- a terminal in the repo root
+- the backend terminal window (already open, visible, running)
 
-**What is already true right now, so you are not surprised on camera:**
-- The queue already has several ring cases. Most show a ring of **4 applications**; that is the
-  number the script below expects and narrates. There is also one larger, older ring in there from
-  repeated testing of the pipeline-demo identity, it is real, just not the one to click into. If
-  you land on it by accident, that is fine too, see the troubleshooting note at the bottom.
-- The `clean` / `injection` / `replay` scenarios below all currently come back `REVIEW`, not a mix
-  of `STEP_UP` and `REVIEW`, because the fixed demo applicant ("Asha Rao") has been submitted many
-  times during testing and the graph-linkage stage correctly floors it. This is explained below and
-  is genuinely a good thing to point out on camera, not a problem to hide. The distinction to show
-  instead is in `rulesFired`, covered below.
-- The brief on at least one ring case is already cached (pre-warmed), so it loads instantly. If you
-  open a case that has never been opened before, the brief will take a few seconds; say so on
-  camera rather than waiting in silence (see troubleshooting).
+**Reminder for the live run:** you will re-run `clean`, `injection`, and `replay` again on camera.
+Because `clean`'s identity was already submitted once during this prep pass, its live re-run will
+still correctly show `STEP_UP` (one prior link isn't enough to change the outcome, the math is the
+same either way), so the numbers in the script below hold.
 
 ## Script
 
@@ -102,10 +105,10 @@ Postgres.
 > SHAP-derived reason codes, not a stub.
 > This whole call, model scoring, five rule checks, the graph query, the policy decision, and
 > persistence, runs in about 50 milliseconds at p95 under load. Budget is 250.
-> Notice `rulesFired` is empty here. Nothing rule-based flagged this.
-> It's `REVIEW` for a different reason: graph risk. I've resubmitted this same demo identity many
-> times while testing, so the system correctly recognizes it as a heavily linked identity now.
-> That's the graph-linkage stage working exactly as designed, at real accumulated scale."
+> Notice `rulesFired` is empty. Nothing rule-based flagged this.
+> Action is `STEP_UP`, not a flat approve or decline.
+> The cost-based policy engine picked the cheapest containment for this risk level, not the blunt
+> instrument."
 
 **[TYPE]**
 ```powershell
@@ -277,9 +280,6 @@ role."
 
 ## If something doesn't go as scripted
 
-- **You clicked the large ring instead of a size-4 one:** that's fine, it's still real, just say
-  so: "this one's grown larger from repeated testing of the same demo identity, same mechanism,
-  just at bigger scale." Then go back and click a different ring row for the rest of the beat.
 - **Ring pill missing where you expected one:** ring detection is asynchronous. Give it 5-10
   seconds after a submission, then refresh the queue. If it's still missing, check the backend
   terminal for `Ring detection failed for application ...` (the case still works fine without a
@@ -289,10 +289,11 @@ role."
   it's cached." rather than waiting in silence.
 - **Gemini quota exhausted or Bedrock not configured:** expected locally. Point at the template
   text and move on, it's the documented degraded mode, not a bug.
-- **Want a fully clean queue instead:** `docker compose -f infra\docker-compose.yml down -v` then
-  `.\scripts\dev-up.ps1`, restart the three app terminals, then re-run steps 3-4 from the old setup
-  checklist (submit the three scenarios, then `ml-service\findings\graph_ablation.py` to reseed one
-  clean ring). Not required, the current state works fine as scripted above.
+- **Need to redo this clean setup again later** (after more testing has piled up more data):
+  `docker compose -f infra\docker-compose.yml down -v`, `.\scripts\dev-up.ps1`, restart the three
+  app terminals, run the three `submit-application.ps1` scenarios once each, then
+  `ml-service\findings\graph_ablation.py` to reseed one clean batch of rings. That is exactly what
+  was just done to prepare this recording.
 
 ## Demo identities
 
