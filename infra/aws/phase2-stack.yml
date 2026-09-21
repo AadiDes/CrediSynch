@@ -308,6 +308,7 @@ Resources:
                 OIDC_ISSUER_URI: http://127.0.0.1:8081/realms/credisynch
                 ML_BASE_URL: http://127.0.0.1:8000
                 CORS_ALLOWED_ORIGINS: '*'
+                AWS_REGION: '${AWS::Region}'
               logging:
                 driver: awslogs
                 options:

@@ -5,7 +5,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /** Strongly typed application configuration. Secrets are injected from the environment. */
 @ConfigurationProperties(prefix = "app")
-public record AppProperties(Cors cors, Ml ml, Hashing hashing, Policy policy, Graph graph, Restricted restricted) {
+public record AppProperties(
+        Cors cors, Ml ml, Hashing hashing, Policy policy, Graph graph, Restricted restricted, Bedrock bedrock) {
 
     public record Cors(List<String> allowedOrigins) {}
 
@@ -45,4 +46,11 @@ public record AppProperties(Cors cors, Ml ml, Hashing hashing, Policy policy, Gr
             int velocityCapPerDay,
             int liftAfterDays,
             double matchConfidentThreshold) {}
+
+    /**
+     * ADR 0005: Nova for the analyst brief, Titan for embeddings. The brief model id is the APAC
+     * cross-region inference profile, not the bare foundation-model id - ap-south-1 only exposes
+     * Nova through on-demand inference profiles, confirmed against the live account.
+     */
+    public record Bedrock(String briefModelId, String embeddingModelId) {}
 }
