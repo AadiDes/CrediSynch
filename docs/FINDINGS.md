@@ -198,6 +198,35 @@ view of the same case. `cases.brief` and `cases.brief_model` already exist as co
 schema and are simply never written to; persisting the brief on first generation and serving it
 from there after is a small, concrete fix, not a research problem. Recorded in Limitations (g).
 
+## Module A: VECTOR descriptor matching
+
+Implemented and unit-tested (8 tests, `TransactionMatchingServiceTest`): `EXACT -> VECTOR
+(cosine similarity, confidence-gated at 0.80) -> TRIGRAM -> none`, embeddings computed once for
+the 5-merchant catalog on backend startup (`MerchantEmbeddingBackfillService`, idempotent), any
+embedding failure degrading silently to trigram - the same pattern as every other LLM call in
+this codebase.
+
+**Live status: code-complete and deployed; the one-time catalog backfill is blocked by Gemini's
+free-tier daily embedding quota (1000 requests/day), exhausted by this session's own testing**
+(the graph-linkage and latency findings above alone submitted 2,400+ live decisions, several of
+which opened cases and triggered the async case-embedding call on the same quota). Confirmed via
+the live logs and a direct database check - `merchants.descriptor_embedding` is still `NULL` for
+all five rows after two backfill attempts, both returning `429 RESOURCE_EXHAUSTED`.
+
+This has **no effect on the live system's correctness right now**: `matchByVector` catches the
+failure and the matcher falls straight through to trigram, exactly as it did before this feature
+existed. The backfill re-runs automatically (idempotent) on every backend restart, so it will
+complete on its own once the daily quota resets - no further deploy needed - or immediately on a
+paid Gemini tier or once Bedrock/Titan is available.
+
+**Hit-rate comparison (`TransactionMatchingServiceTest`, mocked - not yet measurable live for the
+reason above):** on a deliberately hard "CBE #99120" abbreviation for "Circuit & Byte
+Electronics," a mocked trigram similarity scores 0.05 (below the 0.45 confidence floor - would
+ask the customer to confirm) while a mocked vector similarity of 0.88 clears the 0.80 threshold
+and resolves it directly. This is the intended vector-over-trigram value: trigram needs shared
+*characters*, vector needs shared *meaning* - the two fail on different classes of descriptor,
+which is exactly why the design keeps both rather than picking one.
+
 ## g. Limitations
 
 - **Synthetic rings.** Finding (d)'s perfect precision/recall is on rings this project generated
