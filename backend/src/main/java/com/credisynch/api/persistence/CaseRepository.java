@@ -108,7 +108,7 @@ public class CaseRepository {
         return jdbc.query("SELECT id, algorithm, size, density FROM rings WHERE id = ?",
                 rs -> rs.next()
                         ? Optional.of(new RingRow(rs.getObject(1, UUID.class), rs.getString(2), rs.getInt(3),
-                                rs.getObject(4, Double.class)))
+                                nullableDouble(rs, 4)))
                         : Optional.empty(),
                 ringId);
     }
@@ -140,8 +140,14 @@ public class CaseRepository {
                 rs.getString(3),
                 rs.getInt(4),
                 rs.getString(5),
-                rs.getObject(6, Double.class),
+                nullableDouble(rs, 6),
                 rs.getObject(7, UUID.class),
                 rs.getTimestamp(8).toInstant());
+    }
+
+    /** pgjdbc's getObject(int, Double.class) rejects NUMERIC columns outright; getDouble + wasNull works. */
+    private Double nullableDouble(ResultSet rs, int columnIndex) throws SQLException {
+        double value = rs.getDouble(columnIndex);
+        return rs.wasNull() ? null : value;
     }
 }
