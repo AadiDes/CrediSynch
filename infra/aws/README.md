@@ -44,6 +44,17 @@ through SSM, and starts the services. It prints the live API, ML, and Keycloak U
 database, HMAC, and Keycloak admin values are kept in Secrets Manager and are never written to the
 repository.
 
+**`deploy.sh`, the Caddyfile, and `docker-compose.yml` are written onto the instance once, by
+`UserData`, at first boot only** - `aws cloudformation deploy` on an unchanged `AWS::EC2::Instance`
+does not re-run `UserData`, so editing the heredocs in `phase2-stack.yml` alone does not reach an
+already-running instance. That drift is exactly what bit this deployment once already: a
+`GEMINI_API_KEY` export was added to the template mid-project, `docker-compose.yml` on the instance
+already referenced it (pushed there directly via SSM at some point), but `deploy.sh` never picked up
+the matching export until it was hand-patched over SSM too. After any `phase2-stack.yml` UserData
+change, either replace the instance (delete and let CFN recreate it) or push the changed file(s)
+directly with an `aws ssm send-command` write, matching what `deploy.sh` itself already does for the
+realm file.
+
 ## Live smoke test
 
 Fetch a Keycloak token using the same demo credentials as local development:
