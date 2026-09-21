@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /** Strongly typed application configuration. Secrets are injected from the environment. */
 @ConfigurationProperties(prefix = "app")
-public record AppProperties(Cors cors, Ml ml, Hashing hashing, Policy policy, Graph graph) {
+public record AppProperties(Cors cors, Ml ml, Hashing hashing, Policy policy, Graph graph, Restricted restricted) {
 
     public record Cors(List<String> allowedOrigins) {}
 
@@ -35,4 +35,14 @@ public record AppProperties(Cors cors, Ml ml, Hashing hashing, Policy policy, Gr
             int linkWindowHours,
             int stepUpLinkedThreshold,
             int reviewLinkedThreshold) {}
+
+    /**
+     * Module A (ADR 0007): the card issued on an APPROVE_RESTRICTED decision, and how confident a
+     * merchant-descriptor match has to be before it is trusted without asking the customer.
+     */
+    public record Restricted(
+            long startingLimitMinor,
+            int velocityCapPerDay,
+            int liftAfterDays,
+            double matchConfidentThreshold) {}
 }

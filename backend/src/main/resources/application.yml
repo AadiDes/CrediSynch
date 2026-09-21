@@ -49,6 +49,11 @@ app:
     link-window-hours: 720       # 30 days: how far back a shared device/phone/email/address/account counts
     step-up-linked-threshold: 1  # 1+ other application sharing an identity floors the decision at STEP_UP
     review-linked-threshold: 3   # 3+ sharing applications looks like a ring: floor at REVIEW
+  restricted:
+    starting-limit-minor: 50000  # 500.00 in the card's minor currency unit
+    velocity-cap-per-day: 3      # approved transactions per rolling 24h while restrictions are on
+    lift-after-days: 90          # restrictions lift automatically once trust has had time to accrue
+    match-confident-threshold: 0.45  # trigram similarity below this asks the customer instead of guessing
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:4173}
   ml:

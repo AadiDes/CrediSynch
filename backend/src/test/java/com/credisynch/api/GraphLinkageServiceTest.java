@@ -26,7 +26,8 @@ class GraphLinkageServiceTest {
                 new AppProperties.Ml("http://localhost:8000", 400),
                 new AppProperties.Hashing("test-key"),
                 new AppProperties.Policy("policy-test", 1500.0, 3.0, 0.8, 5.0, 0.1, 150.0),
-                config);
+                config,
+                new AppProperties.Restricted(50000, 3, 90, 0.45));
         return new GraphLinkageService(applications, properties);
     }
 

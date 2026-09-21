@@ -8,6 +8,7 @@ import com.credisynch.api.persistence.DecisionRecords.ApplicationRow;
 import com.credisynch.api.persistence.DecisionRecords.DecisionRow;
 import com.credisynch.api.persistence.DecisionRepository;
 import com.credisynch.api.persistence.IdempotencyRepository;
+import com.credisynch.api.restricted.CardIssuanceService;
 import com.credisynch.api.scoring.ScoreResult;
 import com.credisynch.api.scoring.ScoringClient;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -40,6 +41,7 @@ public class DecisionService {
     private final ScoringClient scoringClient;
     private final PolicyEngine policyEngine;
     private final GraphLinkageService graphLinkage;
+    private final CardIssuanceService cardIssuance;
     private final ApplicationRepository applications;
     private final DecisionRepository decisions;
     private final IdempotencyRepository idempotency;
@@ -50,13 +52,15 @@ public class DecisionService {
     private final MeterRegistry meterRegistry;
 
     public DecisionService(RuleChain ruleChain, ScoringClient scoringClient, PolicyEngine policyEngine,
-                           GraphLinkageService graphLinkage, ApplicationRepository applications,
-                           DecisionRepository decisions, IdempotencyRepository idempotency, AuditRepository audit,
+                           GraphLinkageService graphLinkage, CardIssuanceService cardIssuance,
+                           ApplicationRepository applications, DecisionRepository decisions,
+                           IdempotencyRepository idempotency, AuditRepository audit,
                            EntityHasher hasher, ObjectMapper objectMapper, MeterRegistry meterRegistry) {
         this.ruleChain = ruleChain;
         this.scoringClient = scoringClient;
         this.policyEngine = policyEngine;
         this.graphLinkage = graphLinkage;
+        this.cardIssuance = cardIssuance;
         this.applications = applications;
         this.decisions = decisions;
         this.idempotency = idempotency;
@@ -181,6 +185,9 @@ public class DecisionService {
 
         if (action.opensCase()) {
             decisions.openCase(UUID.randomUUID(), applicationId, decisionId, action);
+        }
+        if (action == DecisionAction.APPROVE_RESTRICTED) {
+            cardIssuance.issue(applicationId, request.partnerId());
         }
     }
 
