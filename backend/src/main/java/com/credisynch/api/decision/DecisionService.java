@@ -39,6 +39,7 @@ public class DecisionService {
     private final RuleChain ruleChain;
     private final ScoringClient scoringClient;
     private final PolicyEngine policyEngine;
+    private final GraphLinkageService graphLinkage;
     private final ApplicationRepository applications;
     private final DecisionRepository decisions;
     private final IdempotencyRepository idempotency;
@@ -49,12 +50,13 @@ public class DecisionService {
     private final MeterRegistry meterRegistry;
 
     public DecisionService(RuleChain ruleChain, ScoringClient scoringClient, PolicyEngine policyEngine,
-                           ApplicationRepository applications, DecisionRepository decisions,
-                           IdempotencyRepository idempotency, AuditRepository audit,
+                           GraphLinkageService graphLinkage, ApplicationRepository applications,
+                           DecisionRepository decisions, IdempotencyRepository idempotency, AuditRepository audit,
                            EntityHasher hasher, ObjectMapper objectMapper, MeterRegistry meterRegistry) {
         this.ruleChain = ruleChain;
         this.scoringClient = scoringClient;
         this.policyEngine = policyEngine;
+        this.graphLinkage = graphLinkage;
         this.applications = applications;
         this.decisions = decisions;
         this.idempotency = idempotency;
@@ -66,6 +68,23 @@ public class DecisionService {
                 .description("End-to-end latency of the synchronous decision path")
                 .publishPercentiles(0.5, 0.95, 0.99)
                 .register(meterRegistry);
+    }
+
+    /** Every entity hash this application touches, computed once and reused for the graph check and linkage storage. */
+    private record EntityHashes(String device, String phone, String email, String address, String bankAccount, String ip) {
+        List<String> asList() {
+            return java.util.Arrays.asList(device, phone, email, address, bankAccount, ip);
+        }
+    }
+
+    private EntityHashes hashEntities(ApplicationRequest request) {
+        return new EntityHashes(
+                hasher.hash("DEVICE", request.device().deviceFingerprint()),
+                hasher.hash("PHONE", request.applicant().phone()),
+                hasher.hash("EMAIL", request.applicant().email()),
+                hasher.hash("ADDRESS", request.applicant().addressLine()),
+                hasher.hash("BANK_ACCOUNT", request.applicant().bankAccountRef()),
+                request.device().ipAddress() != null ? hasher.hash("IP", request.device().ipAddress()) : null);
     }
 
     public static class IdempotencyConflict extends RuntimeException {
@@ -88,11 +107,14 @@ public class DecisionService {
         long started = System.nanoTime();
         UUID applicationId = UUID.randomUUID();
 
+        EntityHashes entityHashes = hashEntities(request);
         RuleChain.Result rules = ruleChain.evaluate(request);
         ScoreResult score = scoringClient.score(applicationId.toString(), request.featuresOrEmpty());
-        DecisionAction action = policyEngine.decide(score.fraudProbability(), score.degraded(), rules.floor());
+        GraphLinkageService.Assessment graph = graphLinkage.assess(entityHashes.asList());
+        DecisionAction floor = stricterOf(rules.floor(), graph.floor());
+        DecisionAction action = policyEngine.decide(score.fraudProbability(), score.degraded(), floor);
 
-        persist(applicationId, request, score, rules, action, started);
+        persist(applicationId, request, entityHashes, score, graph, rules, action, started);
 
         long latencyMs = (System.nanoTime() - started) / 1_000_000;
         decisionTimer.record(java.time.Duration.ofNanos(System.nanoTime() - started));
@@ -104,7 +126,7 @@ public class DecisionService {
                 action,
                 policyEngine.customerMessage(action),
                 score.degraded() ? null : score.fraudProbability(),
-                null,
+                graph.risk(),
                 score.degraded() ? null : score.noveltyScore(),
                 score.reasonCodes(),
                 rules.firedIds(),
@@ -121,8 +143,9 @@ public class DecisionService {
         return response;
     }
 
-    private void persist(UUID applicationId, ApplicationRequest request, ScoreResult score,
-                         RuleChain.Result rules, DecisionAction action, long startedNanos) {
+    private void persist(UUID applicationId, ApplicationRequest request, EntityHashes entityHashes,
+                         ScoreResult score, GraphLinkageService.Assessment graph, RuleChain.Result rules,
+                         DecisionAction action, long startedNanos) {
         applications.insert(new ApplicationRow(
                 applicationId,
                 request.externalRef(),
@@ -133,17 +156,12 @@ public class DecisionService {
                 toJson(request)));
 
         // Linkage is stored as keyed digests only: enough to spot sharing, useless if leaked.
-        applications.insertEntityLink(applicationId, "DEVICE",
-                hasher.hash("DEVICE", request.device().deviceFingerprint()));
-        applications.insertEntityLink(applicationId, "PHONE", hasher.hash("PHONE", request.applicant().phone()));
-        applications.insertEntityLink(applicationId, "EMAIL", hasher.hash("EMAIL", request.applicant().email()));
-        applications.insertEntityLink(applicationId, "ADDRESS",
-                hasher.hash("ADDRESS", request.applicant().addressLine()));
-        applications.insertEntityLink(applicationId, "BANK_ACCOUNT",
-                hasher.hash("BANK_ACCOUNT", request.applicant().bankAccountRef()));
-        if (request.device().ipAddress() != null) {
-            applications.insertEntityLink(applicationId, "IP", hasher.hash("IP", request.device().ipAddress()));
-        }
+        applications.insertEntityLink(applicationId, "DEVICE", entityHashes.device());
+        applications.insertEntityLink(applicationId, "PHONE", entityHashes.phone());
+        applications.insertEntityLink(applicationId, "EMAIL", entityHashes.email());
+        applications.insertEntityLink(applicationId, "ADDRESS", entityHashes.address());
+        applications.insertEntityLink(applicationId, "BANK_ACCOUNT", entityHashes.bankAccount());
+        applications.insertEntityLink(applicationId, "IP", entityHashes.ip());
 
         UUID decisionId = UUID.randomUUID();
         decisions.insert(new DecisionRow(
@@ -151,7 +169,7 @@ public class DecisionService {
                 applicationId,
                 action,
                 score.degraded() ? null : score.fraudProbability(),
-                null,
+                graph.risk(),
                 score.degraded() ? null : score.noveltyScore(),
                 toJson(rules.firedIds()),
                 toJson(score.reasonCodes()),
@@ -194,6 +212,17 @@ public class DecisionService {
         } catch (JsonProcessingException e) {
             return "{}";
         }
+    }
+
+    /** Two independent floors (rules, graph linkage) combine by taking whichever is stricter. */
+    private static DecisionAction stricterOf(DecisionAction a, DecisionAction b) {
+        if (a == null) {
+            return b;
+        }
+        if (b == null) {
+            return a;
+        }
+        return a.ordinal() > b.ordinal() ? a : b;
     }
 
     /** Exposed for the platform endpoint so the thresholds in the deck can be shown live. */

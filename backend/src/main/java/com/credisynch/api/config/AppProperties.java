@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /** Strongly typed application configuration. Secrets are injected from the environment. */
 @ConfigurationProperties(prefix = "app")
-public record AppProperties(Cors cors, Ml ml, Hashing hashing, Policy policy) {
+public record AppProperties(Cors cors, Ml ml, Hashing hashing, Policy policy, Graph graph) {
 
     public record Cors(List<String> allowedOrigins) {}
 
@@ -25,4 +25,14 @@ public record AppProperties(Cors cors, Ml ml, Hashing hashing, Policy policy) {
             double restrictedCost,
             double exposureFraction,
             double declineCost) {}
+
+    /**
+     * Graph linkage stage (pipeline stage 3): how many other applications share a device, phone,
+     * email, address or bank account with this one, and at what count that shared identity alone
+     * becomes strict enough to floor the decision.
+     */
+    public record Graph(
+            int linkWindowHours,
+            int stepUpLinkedThreshold,
+            int reviewLinkedThreshold) {}
 }

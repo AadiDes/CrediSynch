@@ -45,6 +45,10 @@ app:
     restricted-cost: 5.0         # friction cost of a locked, low-limit approval
     exposure-fraction: 0.1       # share of the loss still exposed under restrictions
     decline-cost: 150.0          # cost of wrongly declining a good customer
+  graph:
+    link-window-hours: 720       # 30 days: how far back a shared device/phone/email/address/account counts
+    step-up-linked-threshold: 1  # 1+ other application sharing an identity floors the decision at STEP_UP
+    review-linked-threshold: 3   # 3+ sharing applications looks like a ring: floor at REVIEW
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:4173}
   ml:
