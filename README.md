@@ -3,7 +3,7 @@
 Real-time fraud detection and prevention for digital lending — a working prototype built for the
 Synchrony technology hackathon (problem statement 1).
 
-**Live demo:** http://13.200.182.78 — the full analyst console, running against the real decision
+**Live demo:** https://13-200-182-78.sslip.io — the full analyst console, running against the real decision
 pipeline on AWS (Postgres/pgvector, Keycloak, the Spring Boot API and the FastAPI model service).
 See [Demo identities](#demo-identities) below for logins, and [`docs/DEMO.md`](docs/DEMO.md) for a
 guided click-through.

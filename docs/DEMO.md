@@ -3,8 +3,10 @@
 A guided, ~7-minute click-through for the submission recording. Written against the local
 Quickstart (`README.md`), since the `submit-application.ps1` steps below are hardcoded to
 `localhost:8080`. The analyst-console portion (everything from "Analyst console: the queue"
-onward) also now works identically against the live demo at http://13.200.182.78 - the console is
-deployed there too (see README) - if you'd rather record against that instead of a local run.
+onward) also now works identically against the live demo at https://13-200-182-78.sslip.io - the
+console is deployed there too (see README), with a real HTTPS certificate (required for login to
+work in a browser at all - see `docs/FINDINGS.md`'s limitations) - if you'd rather record against
+that instead of a local run.
 
 ## Before you hit record
 

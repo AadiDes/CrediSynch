@@ -10,7 +10,7 @@ cd ml-service
 .\.venv\Scripts\python.exe findings\build_findings.py
 
 # Live-system findings (need the deployed stack; see docs/DEMO.md for URLs/logins)
-$env:KEYCLOAK_URL = "http://13.200.182.78/keycloak"; $env:API_BASE_URL = "http://13.200.182.78/api"
+$env:KEYCLOAK_URL = "https://13-200-182-78.sslip.io/keycloak"; $env:API_BASE_URL = "https://13-200-182-78.sslip.io/api"
 .\.venv\Scripts\python.exe findings\graph_ablation.py
 # entity_links export step is manual (SSM/psql - see graph_ablation.py's docstring), then:
 .\.venv\Scripts\python.exe findings\graph_ablation_detect.py
@@ -142,8 +142,9 @@ this cleanly. See Limitations (g).
 
 ## e. Latency: the synchronous hot path, under real load
 
-`k6`, constant-arrival-rate at 20 req/s for 2 minutes, against the live deployed stack
-(`http://13.200.182.78`), two runs:
+`k6`, constant-arrival-rate at 20 req/s for 2 minutes, against the live deployed stack (at the
+bare-IP HTTP address this deployment used at the time; it now serves HTTPS at
+`https://13-200-182-78.sslip.io` - see the Live demo link in README), two runs:
 
 **Full decision pipeline** (`POST /api/v1/applications`, 2,401 requests, 0 failures):
 

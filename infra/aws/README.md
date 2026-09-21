@@ -12,9 +12,14 @@ This deployment is intentionally small enough for a hackathon demo:
 - Caddy at the public edge: `/api`, `/ml`, `/keycloak`, and `/actuator/health` route to their
   services; everything else routes to the console (nginx serving the Vite build).
 
-The local and AWS identity paths therefore use the same issuer and JWT role mapping. The IP-based
-hackathon demo uses HTTP and a deployment-only realm copy with `sslRequired` set to `none`; do not
-use that setting for a production deployment.
+The local and AWS identity paths therefore use the same issuer and JWT role mapping. The demo
+serves real HTTPS at `https://13-200-182-78.sslip.io` - [sslip.io](https://sslip.io) resolves that
+hostname straight to the elastic IP with no domain purchase needed, which is enough for Caddy to
+get a genuine Let's Encrypt certificate automatically. This isn't cosmetic: browsers refuse the Web
+Crypto API (which `keycloak-js` needs for PKCE) on a bare-IP HTTP origin, so login is only possible
+at all because of this. The deployment-only realm copy still sets `sslRequired` to `none` (a
+leftover relaxation from before this existed, no longer load-bearing since traffic really is
+encrypted now) - do not use that setting for a production deployment regardless.
 
 ## Prerequisites
 

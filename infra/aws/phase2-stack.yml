@@ -8,8 +8,10 @@ Parameters:
     AllowedPattern: '[a-zA-Z0-9-]+'
   PublicHost:
     Type: String
-    Default: ':80'
-    Description: Caddy site address. Use :80 for the IP demo or a DNS name for automatic HTTPS.
+    Default: '13-200-182-78.sslip.io'
+    Description: Caddy site address. A DNS name (sslip.io maps this straight to the elastic IP,
+      no domain purchase needed) gets Caddy's automatic HTTPS via Let's Encrypt; browsers refuse
+      the Web Crypto API PKCE needs on a bare-IP HTTP origin, so :80 cannot actually serve login.
   Ec2InstanceType:
     Type: String
     Default: t3.small
@@ -308,7 +310,7 @@ Resources:
                 KC_BOOTSTRAP_ADMIN_PASSWORD: $KEYCLOAK_ADMIN_PASSWORD
                 KC_HTTP_ENABLED: 'true'
                 KC_HEALTH_ENABLED: 'true'
-                KC_HOSTNAME: 'http://${ElasticIp}/keycloak'
+                KC_HOSTNAME: 'https://${PublicHost}/keycloak'
                 KC_HOSTNAME_STRICT: 'false'
               volumes:
                 - /opt/credisynch/realm-credisynch.json:/opt/keycloak/data/import/realm-credisynch.json:ro
