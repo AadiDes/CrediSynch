@@ -54,6 +54,7 @@ app:
     velocity-cap-per-day: 3      # approved transactions per rolling 24h while restrictions are on
     lift-after-days: 90          # restrictions lift automatically once trust has had time to accrue
     match-confident-threshold: 0.45  # trigram similarity below this asks the customer instead of guessing
+    vector-match-confident-threshold: 0.80  # cosine similarity below this falls back to trigram
   bedrock:
     brief-model-id: apac.amazon.nova-lite-v1:0     # inference profile; ap-south-1 has no direct Nova invoke
     embedding-model-id: amazon.titan-embed-text-v2:0

@@ -43,17 +43,6 @@ public class CaseEmbeddingRepository {
         jdbc.update("""
                 INSERT INTO case_embeddings (case_id, embedding) VALUES (?, ?::vector)
                 ON CONFLICT (case_id) DO UPDATE SET embedding = EXCLUDED.embedding, created_at = now()
-                """, caseId, toPgVectorLiteral(embedding));
-    }
-
-    private String toPgVectorLiteral(float[] embedding) {
-        StringBuilder literal = new StringBuilder("[");
-        for (int i = 0; i < embedding.length; i++) {
-            if (i > 0) {
-                literal.append(',');
-            }
-            literal.append(embedding[i]);
-        }
-        return literal.append(']').toString();
+                """, caseId, VectorFormat.literal(embedding));
     }
 }

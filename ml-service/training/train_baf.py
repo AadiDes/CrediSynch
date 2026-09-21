@@ -45,8 +45,9 @@ def split_by_month(frame: pd.DataFrame, holdout_from: int) -> tuple[pd.DataFrame
     return train, test
 
 
-def prepare(frame: pd.DataFrame, categories: dict[str, list[str]] | None = None):
-    features = frame.drop(columns=[c for c in DROP_COLUMNS if c in frame.columns])
+def prepare(frame: pd.DataFrame, categories: dict[str, list[str]] | None = None, extra_drop: list[str] | None = None):
+    drop = DROP_COLUMNS + (extra_drop or [])
+    features = frame.drop(columns=[c for c in drop if c in frame.columns])
     resolved: dict[str, list[str]] = {}
     for column in CATEGORICAL:
         if column not in features.columns:
@@ -83,8 +84,13 @@ def main() -> None:
     parser.add_argument("--holdout-from-month", default=6, type=int)
     parser.add_argument("--calibration-month", default=5, type=int)
     parser.add_argument("--rounds", default=400, type=int)
+    parser.add_argument("--exclude-age", action="store_true",
+                        help="Fairness ablation (docs/FINDINGS.md): drop customer_age as a model "
+                             "input. The raw column is still read from the test split for the "
+                             "post-hoc audit - age is never a feature, only ever an audit input.")
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
+    extra_drop = ["customer_age"] if args.exclude_age else []
 
     started = time.perf_counter()
     frame = load(args.data)
@@ -94,9 +100,9 @@ def main() -> None:
     fit = train_all[train_all["month"] < args.calibration_month]
     calib = train_all[train_all["month"] >= args.calibration_month]
 
-    x_fit, categories = prepare(fit)
-    x_calib, _ = prepare(calib, categories)
-    x_test, _ = prepare(test, categories)
+    x_fit, categories = prepare(fit, extra_drop=extra_drop)
+    x_calib, _ = prepare(calib, categories, extra_drop=extra_drop)
+    x_test, _ = prepare(test, categories, extra_drop=extra_drop)
 
     model = lgb.LGBMClassifier(
         objective="binary",
@@ -144,8 +150,18 @@ def main() -> None:
         "model_version": f"lgbm-baf-{pd.Timestamp.utcnow():%Y%m%d%H%M}",
         "features": list(x_fit.columns),
         "categorical": categories,
+        "excludes_age": args.exclude_age,
     }, indent=2))
     (args.out / "metrics.json").write_text(json.dumps(metrics, indent=2))
+
+    # For docs/FINDINGS.md's calibration plot and policy-band analysis, without needing to
+    # reload the 200MB+ source CSV or retrain just to look at the test split again.
+    pd.DataFrame({
+        "y_true": test[TARGET].to_numpy(),
+        "y_score": calibrated_test,
+        "customer_age": test["customer_age"].to_numpy(),
+        "month": test["month"].to_numpy(),
+    }).to_csv(args.out / "test_predictions.csv", index=False)
 
     print(json.dumps(metrics, indent=2))
     print(f"\nartifacts written to {args.out.resolve()}")

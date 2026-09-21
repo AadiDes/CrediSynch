@@ -46,7 +46,8 @@ public record AppProperties(
             long startingLimitMinor,
             int velocityCapPerDay,
             int liftAfterDays,
-            double matchConfidentThreshold) {}
+            double matchConfidentThreshold,
+            double vectorMatchConfidentThreshold) {}
 
     /**
      * ADR 0005: Nova for the analyst brief, Titan for embeddings. The brief model id is the APAC

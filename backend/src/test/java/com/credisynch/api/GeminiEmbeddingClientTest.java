@@ -29,7 +29,7 @@ class GeminiEmbeddingClientTest {
                 new AppProperties.Hashing("test-key"),
                 new AppProperties.Policy("policy-test", 1500.0, 3.0, 0.8, 5.0, 0.1, 150.0),
                 new AppProperties.Graph(720, 1, 3),
-                new AppProperties.Restricted(50000, 3, 90, 0.45),
+                new AppProperties.Restricted(50000, 3, 90, 0.45, 0.75),
                 new AppProperties.Bedrock("apac.amazon.nova-lite-v1:0", "amazon.titan-embed-text-v2:0"),
                 new AppProperties.Llm("gemini", apiKey, "gemini-2.5-flash", "gemini-embedding-001"));
         return new GeminiEmbeddingClient(gemini, new ObjectMapper(), properties);

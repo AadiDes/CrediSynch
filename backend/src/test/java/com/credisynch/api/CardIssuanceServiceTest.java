@@ -18,7 +18,7 @@ import org.mockito.ArgumentCaptor;
 class CardIssuanceServiceTest {
 
     private final CardAccountRepository cardAccounts = mock(CardAccountRepository.class);
-    private final AppProperties.Restricted config = new AppProperties.Restricted(50000, 3, 90, 0.45);
+    private final AppProperties.Restricted config = new AppProperties.Restricted(50000, 3, 90, 0.45, 0.75);
 
     private CardIssuanceService service() {
         AppProperties properties = new AppProperties(
