@@ -23,9 +23,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class DecisionController {
 
     private final DecisionService decisionService;
+    private final RingDetectionService ringDetection;
 
-    public DecisionController(DecisionService decisionService) {
+    public DecisionController(DecisionService decisionService, RingDetectionService ringDetection) {
         this.decisionService = decisionService;
+        this.ringDetection = ringDetection;
     }
 
     @PostMapping("/applications")
@@ -35,7 +37,11 @@ public class DecisionController {
             @RequestHeader("Idempotency-Key") @Size(min = 8, max = 128) String idempotencyKey,
             @Valid @RequestBody ApplicationRequest request,
             Authentication authentication) {
-        return decisionService.decide(request, idempotencyKey, authentication.getName());
+        DecisionResponse response = decisionService.decide(request, idempotencyKey, authentication.getName());
+        // Triggered post-commit (the @Transactional decide() call above has already returned/committed),
+        // so the async ring query sees this application's just-inserted entity links.
+        ringDetection.detectAsync(response.applicationId());
+        return response;
     }
 
     @GetMapping("/policy/bands")

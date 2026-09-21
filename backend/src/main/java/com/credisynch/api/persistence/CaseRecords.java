@@ -27,5 +27,7 @@ public final class CaseRecords {
 
     public record RingRow(UUID ringId, String algorithm, int size, Double density) {}
 
+    public record SharedEntityRow(String entityType, int applicationCount) {}
+
     public record QueueSummary(int openCount, int inReviewCount, int closedCount, java.util.Map<Integer, Integer> byPriority) {}
 }

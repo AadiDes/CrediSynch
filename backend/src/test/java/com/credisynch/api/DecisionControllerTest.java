@@ -14,6 +14,7 @@ import com.credisynch.api.decision.DecisionAction;
 import com.credisynch.api.decision.DecisionController;
 import com.credisynch.api.decision.DecisionResponse;
 import com.credisynch.api.decision.DecisionService;
+import com.credisynch.api.decision.RingDetectionService;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -58,6 +59,9 @@ class DecisionControllerTest {
 
     @MockitoBean
     private DecisionService decisionService;
+
+    @MockitoBean
+    private RingDetectionService ringDetection;
 
     @MockitoBean
     private JwtDecoder jwtDecoder;

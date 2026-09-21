@@ -39,3 +39,25 @@ class HealthResponse(BaseModel):
     status: Literal["UP", "DEGRADED"]
     model_version: str
     model_loaded: bool
+
+
+class EntityLink(BaseModel):
+    application_id: str = Field(min_length=1)
+    entity_type: str
+    entity_hash: str
+
+
+class RingDetectionRequest(BaseModel):
+    entity_links: list[EntityLink] = Field(default_factory=list)
+    min_cluster_size: int = Field(default=2, ge=2)
+
+
+class RingCluster(BaseModel):
+    members: list[str]
+    size: int
+    density: float = Field(ge=0.0, le=1.0)
+
+
+class RingDetectionResponse(BaseModel):
+    clusters: list[RingCluster]
+    algorithm: str

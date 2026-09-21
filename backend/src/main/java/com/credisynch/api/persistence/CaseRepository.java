@@ -4,6 +4,7 @@ import com.credisynch.api.persistence.CaseRecords.CaseDetailRow;
 import com.credisynch.api.persistence.CaseRecords.CaseSummaryRow;
 import com.credisynch.api.persistence.CaseRecords.QueueSummary;
 import com.credisynch.api.persistence.CaseRecords.RingRow;
+import com.credisynch.api.persistence.CaseRecords.SharedEntityRow;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -118,6 +119,25 @@ public class CaseRepository {
                                 nullableDouble(rs, 4)))
                         : Optional.empty(),
                 ringId);
+    }
+
+    /** Which entity types are actually shared (not merely present) across a ring's members. */
+    public List<SharedEntityRow> findSharedEntities(UUID ringId) {
+        return jdbc.query("""
+                SELECT el.entity_type, COUNT(DISTINCT el.application_id) AS app_count
+                FROM entity_links el
+                WHERE el.application_id IN (SELECT application_id FROM ring_members WHERE ring_id = ?)
+                  AND el.entity_hash IN (
+                      SELECT entity_hash FROM entity_links
+                      WHERE application_id IN (SELECT application_id FROM ring_members WHERE ring_id = ?)
+                      GROUP BY entity_hash
+                      HAVING COUNT(DISTINCT application_id) > 1
+                  )
+                GROUP BY el.entity_type
+                ORDER BY el.entity_type
+                """,
+                (rs, rowNum) -> new SharedEntityRow(rs.getString(1), rs.getInt(2)),
+                ringId, ringId);
     }
 
     public QueueSummary queueSummary() {

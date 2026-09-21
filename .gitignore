@@ -12,6 +12,7 @@ venv/
 .env.local
 *.pem
 *.p12
+docker-compose.override.yml
 # data (never commit the dataset - non-commercial licence, large)
 data/
 *.csv

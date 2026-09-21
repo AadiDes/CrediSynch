@@ -1,6 +1,9 @@
 package com.credisynch.api.persistence;
 
 import com.credisynch.api.persistence.DecisionRecords.ApplicationRow;
+import com.credisynch.api.persistence.GraphRecords.EntityLinkRow;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -61,5 +64,41 @@ public class ApplicationRepository {
                 """,
                 (rs, rowNum) -> rs.getObject(1, UUID.class),
                 applicationId, withinHours);
+    }
+
+    /**
+     * The full transitive closure of applications reachable from {@code applicationId} by following
+     * shared entity hashes (device/phone/email/address/bank account/IP), any number of hops. This is
+     * exactly the connected component the ring-detection graph algorithm (ml-service) will cluster -
+     * the recursive query finds the candidate neighbourhood; NetworkX (ADR 0002) does the clustering.
+     */
+    public List<UUID> findConnectedApplicationIds(UUID applicationId) {
+        return jdbc.query("""
+                WITH RECURSIVE cluster_apps(application_id) AS (
+                    SELECT application_id FROM entity_links WHERE application_id = ?
+                    UNION
+                    SELECT el2.application_id
+                    FROM cluster_apps ca
+                    JOIN entity_links el1 ON el1.application_id = ca.application_id
+                    JOIN entity_links el2 ON el2.entity_hash = el1.entity_hash
+                )
+                SELECT application_id FROM cluster_apps
+                """,
+                (rs, rowNum) -> rs.getObject(1, UUID.class),
+                applicationId);
+    }
+
+    /** Raw entity-link evidence for a set of applications - the edge list the graph algorithm clusters. */
+    public List<EntityLinkRow> findEntityLinks(List<UUID> applicationIds) {
+        if (applicationIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        String placeholders = String.join(",", Collections.nCopies(applicationIds.size(), "?"));
+        return jdbc.query("""
+                SELECT application_id, entity_type, entity_hash FROM entity_links
+                WHERE application_id IN (%s)
+                """.formatted(placeholders),
+                (rs, rowNum) -> new EntityLinkRow(rs.getObject(1, UUID.class), rs.getString(2), rs.getString(3)),
+                applicationIds.toArray());
     }
 }

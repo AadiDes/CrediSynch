@@ -104,7 +104,10 @@ public class CaseService {
     }
 
     private RingResponse toRing(RingRow row) {
-        return new RingResponse(row.ringId(), row.algorithm(), row.size(), row.density(), List.of());
+        List<RingResponse.SharedEntity> sharedEntities = cases.findSharedEntities(row.ringId()).stream()
+                .map(r -> new RingResponse.SharedEntity(r.entityType(), r.applicationCount()))
+                .toList();
+        return new RingResponse(row.ringId(), row.algorithm(), row.size(), row.density(), sharedEntities);
     }
 
     private List<ReasonCode> parseReasonCodes(String json) {
