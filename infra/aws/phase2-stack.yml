@@ -226,13 +226,20 @@ Resources:
                 # ADR 0005). Scoped to the specific models the app uses, not all of Bedrock.
                 # Model access for these still has to be enabled once in the Bedrock console
                 # (account-level EULA/marketplace gate; this policy alone does not grant it).
+                #
+                # The foundation-model resource uses a wildcard region: confirmed live that the
+                # APAC cross-region inference profile actually executes the call in whichever
+                # underlying APAC region Bedrock routes to (observed ap-southeast-2 for an
+                # ap-south-1 caller), and IAM evaluates InvokeModel against that execution region,
+                # not the caller's region - a specific region here would deny every request. This
+                # is the resource AWS documents for cross-region inference profiles.
                 Action:
                   - bedrock:InvokeModel
                   - bedrock:InvokeModelWithResponseStream
                 Resource:
                   - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0'
-                  - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/amazon.nova-lite-v1:0'
-                  - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/amazon.nova-micro-v1:0'
+                  - 'arn:aws:bedrock:*::foundation-model/amazon.nova-lite-v1:0'
+                  - 'arn:aws:bedrock:*::foundation-model/amazon.nova-micro-v1:0'
                   - !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/apac.amazon.nova-lite-v1:0'
                   - !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/apac.amazon.nova-micro-v1:0'
 
