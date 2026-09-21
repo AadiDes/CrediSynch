@@ -320,17 +320,29 @@ Resources:
           cat > /opt/credisynch/Caddyfile <<'CADDY'
           {$CADDY_SITE} {
             handle_path /keycloak/* {
-              reverse_proxy 127.0.0.1:8081
+              reverse_proxy 127.0.0.1:8081 {
+                lb_try_duration 30s
+                lb_try_interval 250ms
+              }
             }
             handle /api/* {
-              reverse_proxy 127.0.0.1:8080
+              reverse_proxy 127.0.0.1:8080 {
+                lb_try_duration 30s
+                lb_try_interval 250ms
+              }
             }
             handle /actuator/health {
-              reverse_proxy 127.0.0.1:8080
+              reverse_proxy 127.0.0.1:8080 {
+                lb_try_duration 30s
+                lb_try_interval 250ms
+              }
             }
             handle /ml/* {
               uri strip_prefix /ml
-              reverse_proxy 127.0.0.1:8000
+              reverse_proxy 127.0.0.1:8000 {
+                lb_try_duration 30s
+                lb_try_interval 250ms
+              }
             }
             respond "CrediSynch Phase 2 scoring host" 200
           }
