@@ -10,9 +10,17 @@ real screenshots of the console.
 `https://13-200-182-78.sslip.io` has not been redeployed with the ring-detection fix yet, so a ring
 submitted there will never show a ring badge. Everything else in this script works identically on
 AWS if you redeploy first (`scripts/deploy-aws.ps1`) or want to demo the rest of the pipeline live;
-the ring-specific beat (2:15 below) needs the local stack until that redeploy happens.
+the ring-specific beat (2:50 below) needs the local stack until that redeploy happens.
 
-Total runtime: about 7-8 minutes.
+Total runtime: about 8 minutes.
+
+**Context for this recording:** submitted against Synchrony's Intern, Technology (L07) role in the
+Information Security Agile org. That role's desired skills, REST API development, authentication
+and authorization design, AWS, Java/Spring Boot, Python, React/Redux, map onto this project almost
+one for one, so the script below leans into those beats deliberately rather than generically. It is
+written for a first internship: confident about what was actually built and tested, plain about
+what was learned along the way, and honest about what is still a gap, not a pitch that oversells
+seniority.
 
 ## Before you hit record
 
@@ -117,7 +125,19 @@ after."
 
 ---
 
-### 0:25 - The decision pipeline, live (95s)
+### 0:25 - Contract-first API and identity (20s)
+
+**[TAB]** editor, `api/openapi.yaml`, scrolled to the `/api/v1/applications` or `/api/v1/cases` path.
+
+**[SAY]**
+> "Every endpoint here started as a contract, this OpenAPI spec, written before a single line of
+> the implementation. Authentication is OIDC through Keycloak, so every request carries a signed
+> JWT, and every role, applicant, analyst, admin, is a claim on that token, not a flag the frontend
+> invents."
+
+---
+
+### 0:45 - The decision pipeline, live (95s)
 
 **[TAB]** terminal, repo root.
 
@@ -162,7 +182,7 @@ after."
 
 ---
 
-### 2:00 - Analyst console: the queue (30s)
+### 2:20 - Analyst console: the queue (30s)
 
 **[TAB]** browser, `analyst` window, `http://localhost:5173`, already logged in.
 
@@ -179,7 +199,7 @@ table's RING column on one of the seeded cases.
 
 ---
 
-### 2:15 - Case detail: the ring, end to end (75s)
+### 2:50 - Case detail: the ring, end to end (75s)
 
 This is the beat that did not work before this session's fix; it is the one most worth dwelling on.
 
@@ -224,7 +244,7 @@ account with N other applications" line, then the red "Part of a detected ring: 
 
 ---
 
-### 3:30 - Authorization is server-side, not UI-side (45s)
+### 4:05 - Authorization and authentication, enforced server-side (45s)
 
 **[TAB]** still `analyst` window.
 
@@ -242,11 +262,14 @@ role."
 **[SAY]**
 > "Identical request. Authorization is enforced in the Spring Security filter chain against the
 > bearer token's role claim, not hidden or faked in the UI. Same code path, different token,
-> different outcome."
+> different outcome. That split, authentication proves who you are, authorization decides what
+> that identity is allowed to touch, is the whole design here: Keycloak issues the token, Spring
+> Security's method-level `@PreAuthorize` checks enforce the role on every endpoint, and the
+> frontend never gets asked to keep a secret it can't be trusted with."
 
 ---
 
-### 4:15 - Findings, briefly (100s)
+### 4:50 - Findings, briefly (100s)
 
 **[TAB]** `docs/FINDINGS.md`, scrolled to the top table / section headers.
 
@@ -270,24 +293,33 @@ role."
 
 ---
 
-### 6:00 - Close (60s)
+### 6:30 - Close (60s)
 
 **[TAB]** back to the terminal or the README.
 
 **[SAY]**
-> "What's next: AWS Bedrock is implemented and unit-tested behind the same interface Gemini runs
-> through today, one config line from switching once account access clears. Step-up authentication
-> is decided and labelled by the policy engine but not yet enforced end to end, that gap is written
-> down, not glossed over. And the honest version of every limitation, fairness, the synthetic-ring
-> caveat, the BAF-dataset-as-proxy caveat, is all in `docs/FINDINGS.md`, because a system that only
-> reports its wins isn't one I'd trust in production either."
+> "A quick honest note on what's not finished. The architecture doc describes the async ring and
+> retraining jobs as Spring Batch work; today they run on Spring's own `@Async`, because the
+> current workload doesn't need chunked, restartable processing yet. Moving that stage to actual
+> Spring Batch, with proper step and job repositories, is the next piece I'd build, not because
+> this doesn't work, but because that's the right tool once the job needs to survive a restart
+> partway through. Step-up authentication is decided and labelled by the policy engine but not
+> enforced end to end yet either, that gap is written down, not glossed over. AWS Bedrock is
+> implemented and unit-tested behind the same interface Gemini runs through today, one config line
+> from switching once account access clears. Every other limitation, the fairness gap, the
+> synthetic-ring caveat, is in `docs/FINDINGS.md`, because I'd rather a reviewer find the honest
+> version from me than find it themselves."
 
-**[Optional, if there's time or it's asked about]**
-> "This exercise mirrors what real-time credit-risk and fraud-decisioning work actually looks like:
-> a synchronous path with a hard latency budget, asynchronous graph and explainability work that
-> never blocks the customer, cost-based policy instead of a single threshold, PII handled as keyed
-> hashes instead of raw values, authorization enforced server-side, and a fairness audit that
-> reports the uncomfortable number instead of the flattering one."
+**[SAY]**
+> "This was built solo across the stack: Java and Spring Boot for the decision API, Python and
+> FastAPI for the model service, React and Redux for the console, real AWS deployment behind it,
+> OIDC authentication and role-based authorization throughout. I picked a fraud problem because it
+> forced real tradeoffs, latency against explainability, a single threshold against a cost model,
+> convenience against keeping PII out of a graph table entirely, and I'd rather show that thinking
+> than a toy CRUD app. I'm looking for a technology internship for exactly this reason: I want to
+> keep building things where getting the engineering judgment right actually matters, on a real
+> team, with real code review, and I learn fastest by shipping something end to end and then
+> finding out everywhere it was wrong."
 
 ---
 
