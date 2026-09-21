@@ -80,11 +80,28 @@ only supplies identity and realm-role claims.
 
 ## GitHub OIDC
 
-After the Phase 2 stack exists, create the scoped GitHub role using
-`github-oidc-role.yml`. Supply the two ECR repository ARNs and the EC2 instance ID from the stack
-outputs. Store the resulting `RoleArn` as the repository secret `AWS_DEPLOY_ROLE_ARN`. The workflow
-only trusts the `v0.2-decision-core` tag and can push the two images plus send the SSM restart
-command; it cannot create arbitrary infrastructure.
+This is deployed and working - `.github/workflows/deploy-aws.yml` runs on `workflow_dispatch` or a
+push to the `v1.0-submission` tag, builds and pushes all three images (backend, ML, frontend), and
+restarts the live services over SSM. `AWS_DEPLOY_ROLE_ARN` is already set as a repository secret.
+
+To recreate the role after a repository or account change, deploy `github-oidc-role.yml` with the
+three ECR repository ARNs, the EC2 instance ID, and all four Github* parameters (owner/repo name
+**and** their numeric IDs - see below) from the stack outputs / `gh api repos/OWNER/REPO`, then
+store the resulting `RoleArn` as `AWS_DEPLOY_ROLE_ARN`.
+
+Two non-obvious things this took a live run each to actually discover, both worth knowing before
+touching this again:
+
+- **The trust policy needs both subject-claim formats.** Repositories created after GitHub's
+  immutable-subject rollout (this one: 2026-09-20) present `sub` as
+  `repo:owner@ownerId/repo@repoId:ref:...`, not the documented-everywhere
+  `repo:owner/repo:ref:...`. `github-oidc-role.yml` lists both forms for both `ref:refs/heads/main`
+  (the `workflow_dispatch` trigger) and `ref:refs/tags/v1.0-submission`; which one a given repo
+  actually uses isn't observable without a live run failing first.
+- **`ssm:GetCommandInvocation` cannot be scoped to a document or instance ARN** - only
+  `ssm:SendCommand` can. `aws ssm wait command-executed` (what the workflow's last step uses) polls
+  `GetCommandInvocation`, so it needs its own statement with `Resource: '*'`; combining it with
+  `SendCommand` under the same scoped resource list denies it silently.
 
 The workflow expects the trained model artifacts to be present in the checkout. For a clean CI
 deploy, commit or attach the approved model artifact through the project’s chosen artifact store.
