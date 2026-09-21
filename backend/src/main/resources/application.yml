@@ -60,7 +60,7 @@ app:
   llm:
     provider: ${LLM_PROVIDER:bedrock}   # bedrock (default) or gemini - see AppProperties.Llm
     gemini-api-key: ${GEMINI_API_KEY:}
-    gemini-brief-model: gemini-2.5-flash
+    gemini-brief-model: gemini-3.6-flash
     gemini-embedding-model: gemini-embedding-001
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:4173}
