@@ -1,5 +1,6 @@
 package com.credisynch.api.decision;
 
+import com.credisynch.api.cases.CaseEmbeddingService;
 import com.credisynch.api.common.EntityHasher;
 import com.credisynch.api.decision.rules.RuleChain;
 import com.credisynch.api.persistence.ApplicationRepository;
@@ -42,6 +43,7 @@ public class DecisionService {
     private final PolicyEngine policyEngine;
     private final GraphLinkageService graphLinkage;
     private final CardIssuanceService cardIssuance;
+    private final CaseEmbeddingService caseEmbedding;
     private final ApplicationRepository applications;
     private final DecisionRepository decisions;
     private final IdempotencyRepository idempotency;
@@ -53,14 +55,15 @@ public class DecisionService {
 
     public DecisionService(RuleChain ruleChain, ScoringClient scoringClient, PolicyEngine policyEngine,
                            GraphLinkageService graphLinkage, CardIssuanceService cardIssuance,
-                           ApplicationRepository applications, DecisionRepository decisions,
-                           IdempotencyRepository idempotency, AuditRepository audit,
+                           CaseEmbeddingService caseEmbedding, ApplicationRepository applications,
+                           DecisionRepository decisions, IdempotencyRepository idempotency, AuditRepository audit,
                            EntityHasher hasher, ObjectMapper objectMapper, MeterRegistry meterRegistry) {
         this.ruleChain = ruleChain;
         this.scoringClient = scoringClient;
         this.policyEngine = policyEngine;
         this.graphLinkage = graphLinkage;
         this.cardIssuance = cardIssuance;
+        this.caseEmbedding = caseEmbedding;
         this.applications = applications;
         this.decisions = decisions;
         this.idempotency = idempotency;
@@ -184,7 +187,9 @@ public class DecisionService {
                 Instant.now()));
 
         if (action.opensCase()) {
-            decisions.openCase(UUID.randomUUID(), applicationId, decisionId, action);
+            UUID caseId = UUID.randomUUID();
+            decisions.openCase(caseId, applicationId, decisionId, action);
+            caseEmbedding.embedAsync(caseId, action.name(), score.reasonCodes());
         }
         if (action == DecisionAction.APPROVE_RESTRICTED) {
             cardIssuance.issue(applicationId, request.partnerId());
