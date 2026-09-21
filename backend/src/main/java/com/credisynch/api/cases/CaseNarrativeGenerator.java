@@ -7,9 +7,10 @@ import java.util.UUID;
  * The LLM boundary (ADR 0005): writes the analyst brief from reason codes and graph evidence only,
  * never from applicant free text, and never decides anything - it explains a decision already made.
  *
- * No implementation is wired in yet (no Bedrock/LLM provider is provisioned for this deployment).
- * {@link NullCaseNarrativeGenerator} is the default bean so the rest of the case pipeline - queue,
- * detail, labels - works completely without one. Swap in a real implementation by defining another
+ * No Bedrock-backed implementation is wired in yet (no Bedrock model access is provisioned for
+ * this deployment). {@link TemplateCaseNarrativeGenerator} is the default bean - the documented
+ * degraded mode (docs/architecture.md: "Bedrock unavailable | Template-generated brief") is also
+ * the everyday default here. Swap in a real implementation by defining another
  * {@code CaseNarrativeGenerator} bean and marking it {@code @Primary}; nothing else changes.
  */
 public interface CaseNarrativeGenerator {
