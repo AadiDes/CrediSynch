@@ -221,6 +221,20 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Resource: !Sub '${LogGroup.Arn}:*'
+              - Effect: Allow
+                # Titan embeddings (similar-case search, ADR 0003) and Nova (analyst brief,
+                # ADR 0005). Scoped to the specific models the app uses, not all of Bedrock.
+                # Model access for these still has to be enabled once in the Bedrock console
+                # (account-level EULA/marketplace gate; this policy alone does not grant it).
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource:
+                  - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0'
+                  - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/amazon.nova-lite-v1:0'
+                  - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/amazon.nova-micro-v1:0'
+                  - !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/apac.amazon.nova-lite-v1:0'
+                  - !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/apac.amazon.nova-micro-v1:0'
 
   InstanceProfile:
     Type: AWS::IAM::InstanceProfile
