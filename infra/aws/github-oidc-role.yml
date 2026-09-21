@@ -6,6 +6,13 @@ Parameters:
     Type: String
   GithubRepository:
     Type: String
+  GithubOwnerId:
+    Type: String
+    Description: Numeric GitHub user/org ID - repos created after GitHub's immutable-subject
+      rollout put this in the OIDC sub claim instead of (or alongside) the owner name.
+  GithubRepositoryId:
+    Type: String
+    Description: Numeric GitHub repository ID - same reason as GithubOwnerId.
   BackendRepositoryArn:
     Type: String
   MlRepositoryArn:
@@ -41,10 +48,16 @@ Resources:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
               StringLike:
                 # workflow_dispatch runs (deploy-aws.yml's primary trigger) carry the dispatched
-                # ref - main - in `sub`; the release tag push is the secondary trigger.
+                # ref - main - in `sub`; the release tag push is the secondary trigger. Repos
+                # created after GitHub's immutable-subject rollout (this one: 2026-09-20) use
+                # repo:owner@ownerId/repo@repoId:... instead of repo:owner/repo:... - list both
+                # forms since which one a given token actually uses isn't otherwise observable
+                # without a live run.
                 token.actions.githubusercontent.com:sub:
                   - !Sub 'repo:${GithubOwner}/${GithubRepository}:ref:refs/heads/main'
                   - !Sub 'repo:${GithubOwner}/${GithubRepository}:ref:refs/tags/v1.0-submission'
+                  - !Sub 'repo:${GithubOwner}@${GithubOwnerId}/${GithubRepository}@${GithubRepositoryId}:ref:refs/heads/main'
+                  - !Sub 'repo:${GithubOwner}@${GithubOwnerId}/${GithubRepository}@${GithubRepositoryId}:ref:refs/tags/v1.0-submission'
       Policies:
         - PolicyName: phase2-image-publish-and-restart
           PolicyDocument:
@@ -68,12 +81,15 @@ Resources:
                 Action: cloudformation:DescribeStacks
                 Resource: '*'
               - Effect: Allow
-                Action:
-                  - ssm:SendCommand
-                  - ssm:GetCommandInvocation
+                Action: ssm:SendCommand
                 Resource:
                   - !Sub 'arn:${AWS::Partition}:ssm:${AWS::Region}::document/AWS-RunShellScript'
                   - !Sub 'arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${InstanceId}'
+              - Effect: Allow
+                # GetCommandInvocation has no document/instance-scoped resource type in SSM's
+                # IAM action reference - AWS only supports Resource: * for it, unlike SendCommand.
+                Action: ssm:GetCommandInvocation
+                Resource: '*'
 
 Outputs:
   RoleArn:
