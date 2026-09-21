@@ -49,3 +49,12 @@ def test_health_and_score_agree_on_model_state():
     health = client.get("/health").json()
     scored = client.post("/score", json={"application_id": "app-state"}).json()
     assert health["model_loaded"] == (not scored["placeholder"])
+
+
+def test_model_loads_for_real_when_artefacts_are_present():
+    """Trained artefacts ship in models/, so a correctly installed service must not fall back to
+    the stub. This catches a requirements.txt missing lightgbm/pandas/joblib, which silently
+    degrades production to the deterministic placeholder instead of failing loudly."""
+    health = client.get("/health").json()
+    assert health["model_loaded"] is True
+    assert health["model_version"].startswith("lgbm-")
