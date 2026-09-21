@@ -50,9 +50,16 @@ public class GeminiCaseNarrativeGenerator implements CaseNarrativeGenerator {
             return fallback.generate(context);
         }
         try {
+            // thinkingBudget: 0 disables extended reasoning - this is a short grounded summary, not
+            // a reasoning task, and reasoning tokens otherwise eat the same maxOutputTokens budget
+            // as the visible answer (observed live: a 300-token budget produced a truncated,
+            // unusable brief because the model spent it on hidden thinking first).
             String body = objectMapper.writeValueAsString(Map.of(
                     "contents", List.of(Map.of("parts", List.of(Map.of("text", prompt.render(context))))),
-                    "generationConfig", Map.of("maxOutputTokens", 300, "temperature", 0.2)));
+                    "generationConfig", Map.of(
+                            "maxOutputTokens", 1024,
+                            "temperature", 0.2,
+                            "thinkingConfig", Map.of("thinkingBudget", 0))));
 
             String responseJson = gemini.post()
                     .uri("/v1beta/models/{model}:generateContent?key={key}", model, apiKey)
