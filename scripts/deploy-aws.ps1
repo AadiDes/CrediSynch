@@ -48,10 +48,12 @@ function Get-Output([string]$key) {
 
 $backendRepository = Get-Output "BackendRepositoryUri"
 $mlRepository = Get-Output "MlRepositoryUri"
+$frontendRepository = Get-Output "FrontendRepositoryUri"
 $instanceId = Get-Output "InstanceId"
 $apiUrl = Get-Output "ApiUrl"
 $mlHealthUrl = Get-Output "MlHealthUrl"
 $keycloakUrl = Get-Output "KeycloakUrl"
+$consoleUrl = Get-Output "ConsoleUrl"
 
 if (-not $SkipImages) {
     Write-Host "Packaging the backend JAR..." -ForegroundColor Cyan
@@ -79,6 +81,12 @@ if (-not $SkipImages) {
     if ($LASTEXITCODE -ne 0) { throw "ML Docker image build failed." }
     docker push "$mlRepository`:latest"
     if ($LASTEXITCODE -ne 0) { throw "ML Docker image push failed." }
+
+    Write-Host "Building and pushing frontend image..." -ForegroundColor Cyan
+    docker build -t "$frontendRepository`:latest" -f frontend\Dockerfile .\frontend
+    if ($LASTEXITCODE -ne 0) { throw "Frontend Docker image build failed." }
+    docker push "$frontendRepository`:latest"
+    if ($LASTEXITCODE -ne 0) { throw "Frontend Docker image push failed." }
 }
 
 Write-Host "Refreshing the EC2 services through SSM..." -ForegroundColor Cyan
@@ -127,8 +135,9 @@ for ($i = 0; $i -lt 60; $i++) {
     if ($i -eq 59) { throw "Timed out waiting for SSM command $commandId." }
 }
 
-Write-Host "" 
+Write-Host ""
 Write-Host "Phase 2 AWS deployment complete." -ForegroundColor Green
+Write-Host "Console        : $consoleUrl"
 Write-Host "API            : $apiUrl"
 Write-Host "ML health      : $mlHealthUrl"
 Write-Host "Keycloak       : $keycloakUrl"

@@ -10,6 +10,8 @@ Parameters:
     Type: String
   MlRepositoryArn:
     Type: String
+  FrontendRepositoryArn:
+    Type: String
   InstanceId:
     Type: String
 
@@ -38,7 +40,11 @@ Resources:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
               StringLike:
-                token.actions.githubusercontent.com:sub: !Sub 'repo:${GithubOwner}/${GithubRepository}:ref:refs/tags/v0.2-decision-core'
+                # workflow_dispatch runs (deploy-aws.yml's primary trigger) carry the dispatched
+                # ref - main - in `sub`; the release tag push is the secondary trigger.
+                token.actions.githubusercontent.com:sub:
+                  - !Sub 'repo:${GithubOwner}/${GithubRepository}:ref:refs/heads/main'
+                  - !Sub 'repo:${GithubOwner}/${GithubRepository}:ref:refs/tags/v1.0-submission'
       Policies:
         - PolicyName: phase2-image-publish-and-restart
           PolicyDocument:
@@ -57,6 +63,7 @@ Resources:
                 Resource:
                   - !Ref BackendRepositoryArn
                   - !Ref MlRepositoryArn
+                  - !Ref FrontendRepositoryArn
               - Effect: Allow
                 Action: cloudformation:DescribeStacks
                 Resource: '*'

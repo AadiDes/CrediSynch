@@ -183,6 +183,14 @@ Resources:
         ScanOnPush: true
       EmptyOnDelete: true
 
+  FrontendRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${EnvironmentName}/frontend'
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      EmptyOnDelete: true
+
   LogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -217,6 +225,7 @@ Resources:
                 Resource:
                   - !GetAtt BackendRepository.Arn
                   - !GetAtt MlRepository.Arn
+                  - !GetAtt FrontendRepository.Arn
               - Effect: Allow
                 Action: secretsmanager:GetSecretValue
                 Resource:
@@ -299,7 +308,7 @@ Resources:
                 KC_BOOTSTRAP_ADMIN_PASSWORD: $KEYCLOAK_ADMIN_PASSWORD
                 KC_HTTP_ENABLED: 'true'
                 KC_HEALTH_ENABLED: 'true'
-                KC_HOSTNAME: http://127.0.0.1:8081
+                KC_HOSTNAME: 'http://${ElasticIp}/keycloak'
                 KC_HOSTNAME_STRICT: 'false'
               volumes:
                 - /opt/credisynch/realm-credisynch.json:/opt/keycloak/data/import/realm-credisynch.json:ro
@@ -334,6 +343,16 @@ Resources:
                   awslogs-region: '${AWS::Region}'
                   awslogs-group: '${LogGroup}'
                   awslogs-stream: backend
+            frontend:
+              image: '${FrontendRepository.RepositoryUri}:latest'
+              network_mode: host
+              restart: unless-stopped
+              logging:
+                driver: awslogs
+                options:
+                  awslogs-region: '${AWS::Region}'
+                  awslogs-group: '${LogGroup}'
+                  awslogs-stream: frontend
             caddy:
               image: caddy:2-alpine
               network_mode: host
@@ -378,7 +397,12 @@ Resources:
                 lb_try_interval 250ms
               }
             }
-            respond "CrediSynch Phase 2 scoring host" 200
+            handle {
+              reverse_proxy 127.0.0.1:8082 {
+                lb_try_duration 30s
+                lb_try_interval 250ms
+              }
+            }
           }
           CADDY
           cat > /opt/credisynch/deploy.sh <<'DEPLOY_SCRIPT'
@@ -427,5 +451,10 @@ Outputs:
     Value: !GetAtt BackendRepository.RepositoryUri
   MlRepositoryUri:
     Value: !GetAtt MlRepository.RepositoryUri
+  FrontendRepositoryUri:
+    Value: !GetAtt FrontendRepository.RepositoryUri
+  ConsoleUrl:
+    Description: Public analyst console URL through Caddy
+    Value: !Sub 'http://${ElasticIp}/'
   LogGroupName:
     Value: !Ref LogGroup

@@ -13,7 +13,8 @@ Spring Boot decision API  --HTTP-->  FastAPI model service (LightGBM, SHAP, grap
 PostgreSQL + pgvector  <----------  batch jobs (Spring Batch -> Python: rings, retraining)
         ^
         |  async, off the hot path
-Amazon Bedrock (Nova for briefs, Titan embeddings for similar-case search)
+Gemini (briefs + embeddings) -- app.llm.provider=bedrock switches to AWS Bedrock (Nova + Titan),
+                                 same interfaces, no code change - see README's "LLM provider" section
 ```
 
 ## Why this split
@@ -34,5 +35,5 @@ acknowledging a webhook immediately and dispatching the slow work in the backgro
 | Failure | Behaviour |
 |---|---|
 | Model service unavailable | Rules-only decision, conservative action (review), `degradedMode: true` on the decision |
-| Bedrock unavailable | Template-generated brief; the decision is unaffected because the LLM never decides |
+| LLM provider unavailable (Bedrock or Gemini) | Template-generated brief; the decision is unaffected because the LLM never decides |
 | Keycloak unavailable | API rejects all calls (fail closed); the console shows an explicit sign-in error |

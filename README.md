@@ -3,11 +3,9 @@
 Real-time fraud detection and prevention for digital lending — a working prototype built for the
 Synchrony technology hackathon (problem statement 1).
 
-**Live API:** http://13.200.182.78 runs the real decision pipeline on AWS (Postgres/pgvector,
-Keycloak, the Spring Boot API and the FastAPI model service) — see `/actuator/health`,
-`/ml/health` and `/keycloak/realms/credisynch/.well-known/openid-configuration`. The analyst
-console (React) is not deployed there yet; it runs locally against either backend. See
-[Demo identities](#demo-identities) below for logins, and [`docs/DEMO.md`](docs/DEMO.md) for a
+**Live demo:** http://13.200.182.78 — the full analyst console, running against the real decision
+pipeline on AWS (Postgres/pgvector, Keycloak, the Spring Boot API and the FastAPI model service).
+See [Demo identities](#demo-identities) below for logins, and [`docs/DEMO.md`](docs/DEMO.md) for a
 guided click-through.
 
 CrediSynch decides a credit application in one synchronous call, then explains and learns
@@ -167,8 +165,9 @@ the score threshold that budget implies, and the false-positive-rate ratio acros
 
 The live demo above runs on the stack documented in
 [`infra/aws/README.md`](infra/aws/README.md): RDS PostgreSQL/pgvector, the same Keycloak realm as
-local development, Caddy, ECR, and an SSM-managed EC2 host running all four services
-(`docker compose`). Deploy/redeploy with `scripts/deploy-aws.ps1`.
+local development, Caddy, ECR, and an SSM-managed EC2 host running all five services
+(`docker compose`) - backend, ML, Keycloak, Caddy, and the console itself (nginx serving the Vite
+build). Deploy/redeploy with `scripts/deploy-aws.ps1`.
 
 ## Findings
 

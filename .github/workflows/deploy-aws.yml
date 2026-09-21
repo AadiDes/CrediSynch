@@ -3,7 +3,7 @@ name: Deploy Phase 2 to AWS
 on:
   workflow_dispatch:
   push:
-    tags: ['v0.2-decision-core']
+    tags: ['v1.0-submission']
 
 permissions:
   contents: read
@@ -46,6 +46,7 @@ jobs:
           output() { jq -r --arg key "$1" '.[] | select(.OutputKey == $key) | .OutputValue' /tmp/outputs.json; }
           echo "backend_repo=$(output BackendRepositoryUri)" >> "$GITHUB_OUTPUT"
           echo "ml_repo=$(output MlRepositoryUri)" >> "$GITHUB_OUTPUT"
+          echo "frontend_repo=$(output FrontendRepositoryUri)" >> "$GITHUB_OUTPUT"
           echo "instance_id=$(output InstanceId)" >> "$GITHUB_OUTPUT"
 
       - name: Login to ECR
@@ -64,6 +65,13 @@ jobs:
         run: |
           test -f ml-service/models/model.txt
           docker build -t "$IMAGE" -f ml-service/Dockerfile ml-service
+          docker push "$IMAGE"
+
+      - name: Build and push frontend
+        env:
+          IMAGE: ${{ steps.stack.outputs.frontend_repo }}:latest
+        run: |
+          docker build -t "$IMAGE" -f frontend/Dockerfile frontend
           docker push "$IMAGE"
 
       - name: Restart EC2 services through SSM

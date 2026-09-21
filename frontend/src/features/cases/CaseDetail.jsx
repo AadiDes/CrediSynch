@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useGetCaseDetailQuery, usePostCaseLabelMutation } from '../../api/apiSlice';
 
 const LABELS = ['FRAUD', 'LEGITIMATE', 'UNCERTAIN'];
@@ -9,6 +9,19 @@ export default function CaseDetail({ caseId, onBack }) {
   const [label, setLabel] = useState('FRAUD');
   const [note, setNote] = useState('');
   const [labelResult, setLabelResult] = useState(null);
+
+  // The first view of a case generates its analyst brief synchronously (7-15s live - see
+  // docs/FINDINGS.md finding f); every later view is served from the cached brief and loads
+  // instantly. This just tells the analyst which one is happening instead of looking frozen.
+  const [slowLoad, setSlowLoad] = useState(false);
+  useEffect(() => {
+    if (!isLoading) {
+      setSlowLoad(false);
+      return undefined;
+    }
+    const timer = setTimeout(() => setSlowLoad(true), 1500);
+    return () => clearTimeout(timer);
+  }, [isLoading, caseId]);
 
   async function submitLabel() {
     setLabelResult(null);
@@ -27,7 +40,16 @@ export default function CaseDetail({ caseId, onBack }) {
         ← Back to queue
       </button>
 
-      {isLoading && <p>Loading…</p>}
+      {isLoading && (
+        <div className="loading-row">
+          <span className="spinner" aria-hidden="true" />
+          <span>
+            {slowLoad
+              ? 'Still loading — this case has no brief yet, so one is being written for the first time now. Every later view of this case will be instant.'
+              : 'Loading…'}
+          </span>
+        </div>
+      )}
       {error && <p className="bad">Could not load this case ({error.status ?? 'network'}).</p>}
 
       {c && (

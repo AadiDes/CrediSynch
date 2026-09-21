@@ -43,3 +43,6 @@ pre { background: #10131b; padding: 10px; border-radius: 6px; overflow-x: auto; 
 .queue-table td { padding: 8px; border-bottom: 1px dashed var(--line); }
 .queue-table tbody tr:hover { background: #1c2130; cursor: pointer; }
 h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 20px 0 8px; }
+.loading-row { display: flex; align-items: center; gap: 10px; color: var(--muted); padding: 4px 0; }
+.spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: spin 0.7s linear infinite; flex-shrink: 0; }
+@keyframes spin { to { transform: rotate(360deg); } }

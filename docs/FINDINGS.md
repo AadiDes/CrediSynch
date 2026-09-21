@@ -253,7 +253,10 @@ which is exactly why the design keeps both rather than picking one.
   and `BedrockTitanEmbeddingClient` are fully implemented, unit-tested, and IAM-provisioned;
   switching back is `app.llm.provider=bedrock`, no code change.
 - **Brief generation is still slow on first view.** Finding (f): 7-15s the first time a case is
-  opened - unavoidable, that's the live LLM call. Fixed: no longer regenerated on every
-  subsequent view (persisted to `cases.brief`/`brief_model` on first generation), but the console
-  still has no loading state for that first wait - a small UX gap, not a data problem.
+  opened - unavoidable, that's the live LLM call. Fixed: no longer regenerated on every subsequent
+  view (persisted to `cases.brief`/`brief_model` on first generation), and the console now shows a
+  spinner with an explicit "being written for the first time" message rather than a bare, unlabelled
+  wait. The underlying request is still synchronous - `GET /cases/{id}` itself blocks on the LLM
+  call when there's no cached brief - decoupling that into its own async endpoint is the deeper fix,
+  not done here.
 - **VECTOR descriptor matching status:** see the Module A section below.

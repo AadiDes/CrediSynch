@@ -4,9 +4,13 @@ This deployment is intentionally small enough for a hackathon demo:
 
 - RDS PostgreSQL 16 with pgvector, in private subnets.
 - One low-cost EC2 host managed through Systems Manager (no SSH key required).
-- ECR repositories for the Java API and trained ML service.
-- Keycloak on the EC2 host, importing the same `ADMIN`, `ANALYST`, and `APPLICANT` realm roles used locally.
-- Caddy at the public edge, routing `/api`, `/ml`, `/keycloak`, and `/actuator/health`.
+- ECR repositories for the Java API, trained ML service, and the analyst console.
+- Keycloak on the EC2 host, importing the same `ADMIN`, `ANALYST`, and `APPLICANT` realm roles used
+  locally. `KC_HOSTNAME` is set to the public URL's `/keycloak` path (Keycloak's documented pattern
+  for running behind a proxy that strips that path) so browser-based login redirects resolve
+  externally instead of baking in `127.0.0.1`.
+- Caddy at the public edge: `/api`, `/ml`, `/keycloak`, and `/actuator/health` route to their
+  services; everything else routes to the console (nginx serving the Vite build).
 
 The local and AWS identity paths therefore use the same issuer and JWT role mapping. The IP-based
 hackathon demo uses HTTP and a deployment-only realm copy with `sslRequired` set to `none`; do not

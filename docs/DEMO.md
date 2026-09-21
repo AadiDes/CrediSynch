@@ -1,8 +1,10 @@
 # Demo script
 
-A guided, ~7-minute click-through for the submission recording. Runs entirely on the local
-Quickstart (`README.md`) — the AWS deployment currently exposes the live API only, not the
-analyst console; see the README's "Live API" note.
+A guided, ~7-minute click-through for the submission recording. Written against the local
+Quickstart (`README.md`), since the `submit-application.ps1` steps below are hardcoded to
+`localhost:8080`. The analyst-console portion (everything from "Analyst console: the queue"
+onward) also now works identically against the live demo at http://13.200.182.78 - the console is
+deployed there too (see README) - if you'd rather record against that instead of a local run.
 
 ## Before you hit record
 

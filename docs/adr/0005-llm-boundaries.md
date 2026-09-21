@@ -18,3 +18,8 @@ the decision path breaks reproducibility, latency and accountability at once.
 ## Consequences
 - Bedrock downtime degrades the brief, never the decision.
 - The system remains explainable through reason codes, with the narrative as a convenience.
+
+**Update (ADR 0009):** "Amazon Bedrock" above names the vendor this ADR was written against; the
+actual commitment - explain, never decide, never on the hot path - is vendor-neutral. ADR 0009
+makes that boundary an interface with a Gemini implementation alongside Bedrock's, for exactly the
+reasons this ADR already gives.
