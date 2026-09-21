@@ -1,12 +1,36 @@
 # CrediSynch
 
-Real-time fraud detection and prevention for digital lending — a working prototype built for the
+[![CI](https://github.com/AadiDes/CrediSynch/actions/workflows/ci.yml/badge.svg)](https://github.com/AadiDes/CrediSynch/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+Real-time fraud detection and prevention for digital lending, a working prototype built for the
 Synchrony technology hackathon (problem statement 1).
 
-**Live demo:** https://13-200-182-78.sslip.io — the full analyst console, running against the real decision
+**Live demo:** https://13-200-182-78.sslip.io, the full analyst console, running against the real decision
 pipeline on AWS (Postgres/pgvector, Keycloak, the Spring Boot API and the FastAPI model service).
 See [Demo identities](#demo-identities) below for logins, and [`docs/DEMO.md`](docs/DEMO.md) for a
 guided click-through.
+
+## Table of contents
+
+- [Architecture](#architecture)
+- [Decision pipeline](#decision-pipeline)
+- [Repository layout](#repository-layout)
+- [Prerequisites](#prerequisites)
+- [Quickstart](#quickstart)
+- [Demo identities](#demo-identities)
+- [LLM provider](#llm-provider)
+- [Testing](#testing)
+- [Training the model](#training-the-model)
+- [Trying a decision](#trying-a-decision)
+- [AWS deployment](#aws-deployment)
+- [Findings](#findings)
+- [Data](#data)
+- [Security posture](#security-posture)
+- [Status](#status)
+- [Known limitations](#known-limitations)
+- [Contributing](#contributing)
+- [License](#license)
 
 CrediSynch decides a credit application in one synchronous call, then explains and learns
 asynchronously. Its distinguishing idea: **application fraud is a graph problem wearing a tabular
@@ -238,3 +262,21 @@ The full list with numbers behind each is in
   meantime and the backfill completes automatically once the quota resets.
 - **Graph-ring and BAF-as-lending-proxy caveats** - see the findings doc for the honest version of
   both.
+
+## Contributing
+
+This started as a hackathon submission, so there is no formal contribution process yet. If you
+want to extend it:
+
+- Read the relevant [ADR](docs/adr/) before changing a core decision (identity, persistence, the
+  Java/Python split, LLM boundaries) - each one records the alternatives considered and why.
+- Run `mvn test` (backend), `pytest` (ml-service) and `npm run build` (frontend) before opening a
+  pull request; `mvn verify` also runs the Testcontainers integration suite if Docker is available.
+- Keep `docs/FINDINGS.md` honest: every number there is reproducible from a committed script, and
+  new claims should be too.
+- Issues and pull requests are welcome at
+  [github.com/AadiDes/CrediSynch](https://github.com/AadiDes/CrediSynch).
+
+## License
+
+MIT. See [`LICENSE`](LICENSE).
