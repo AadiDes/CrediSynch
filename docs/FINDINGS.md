@@ -193,10 +193,17 @@ generates the brief fresh, synchronously, on every call - see Limitations):
 
 Confirmed off the decision hot path as designed (finding e's 53ms p95 is unaffected - the brief
 is generated only when a case is opened in the console, never during decisioning). But 7-15
-seconds is too slow for a console page load, and it is regenerated - and re-billed - on *every*
-view of the same case. `cases.brief` and `cases.brief_model` already exist as columns in the V1
-schema and are simply never written to; persisting the brief on first generation and serving it
-from there after is a small, concrete fix, not a research problem. Recorded in Limitations (g).
+seconds is too slow for a console page load, and at the time this was measured it was regenerated
+- and re-billed - on *every* view of the same case, because `cases.brief` and `cases.brief_model`
+existed as columns in the V1 schema but were never written to.
+
+**Fixed:** `CaseService`/`CaseRepository` now persist the brief the first time a case is opened
+and serve it straight from the database on every later view - the numbers above still describe
+the cost of that *first* generation (unavoidable - something has to call the LLM once), but the
+"every view" cost is gone. Not re-measured live after the fix (would need a redeploy of the AWS
+backend, which this submission's live URL doesn't currently need for the recording - see
+`docs/DEMO.md`); the fix is unit-tested (`CaseServiceTest`) and mechanically direct enough that
+re-measuring wasn't judged worth another live load test this close to submission.
 
 ## Module A: VECTOR descriptor matching
 
@@ -245,7 +252,8 @@ which is exactly why the design keeps both rather than picking one.
   with an unpredictable timeline - not a code or architecture gap. `BedrockCaseNarrativeGenerator`
   and `BedrockTitanEmbeddingClient` are fully implemented, unit-tested, and IAM-provisioned;
   switching back is `app.llm.provider=bedrock`, no code change.
-- **Brief regeneration is slow and wasteful.** Finding (f): 7-15s per case-detail view, on every
-  view, because nothing caches the result. The schema already has `cases.brief`/`brief_model`
-  columns sitting unused - persisting on first generation is the fix, not yet built.
+- **Brief generation is still slow on first view.** Finding (f): 7-15s the first time a case is
+  opened - unavoidable, that's the live LLM call. Fixed: no longer regenerated on every
+  subsequent view (persisted to `cases.brief`/`brief_model` on first generation), but the console
+  still has no loading state for that first wait - a small UX gap, not a data problem.
 - **VECTOR descriptor matching status:** see the Module A section below.

@@ -183,7 +183,7 @@ Full detail, every number reproducible from a committed script, in
 | Graph linkage | 25% of synthetic ring members escalated by shared-identity evidence alone; ring detector: 1.00 precision/recall |
 | Latency, live, 20 req/s for 2 min | Pipeline p95 **53ms** (4.7x under the 250ms budget), 0 failures across 4,800+ requests |
 | LLM safety | 6/6 injection payloads caught, 8/8 briefs grounded (0 hallucinated features) |
-| LLM brief latency | p50 7.4s - too slow for a snappy console; a concrete, not-yet-built fix is identified |
+| LLM brief latency | p50 7.4s on first view only (unavoidable, the live LLM call); persisted after that, so every later view is instant |
 | VECTOR descriptor matching | Implemented, unit-tested, deployed; live backfill blocked by a Gemini free-tier daily quota - degrades to trigram with no correctness impact |
 
 ## Data
@@ -228,8 +228,8 @@ The full list with numbers behind each is in
   implementations exist, are tested, and are one config line apart.
 - **Fairness is diagnosed, not solved.** Dropping `customer_age` costs real recall and only
   partially closes the false-positive disparity; other features proxy for it.
-- **The analyst brief is slow to generate live** (p50 ~7s) and is not yet cached, though the
-  schema already has the columns for it.
+- **The analyst brief is slow on its first generation** (p50 ~7s, a live LLM call) - now persisted
+  after that first view, so it's a one-time cost per case, not a repeat one.
 - **VECTOR merchant matching** is implemented and deployed but its one-time catalog backfill is
   currently blocked by a Gemini free-tier daily quota; the system runs correctly on trigram in the
   meantime and the backfill completes automatically once the quota resets.

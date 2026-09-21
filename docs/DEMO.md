@@ -27,6 +27,12 @@ $env:KEYCLOAK_URL = "http://localhost:8081"; $env:API_BASE_URL = "http://localho
 This submits ~5 linked applications sharing identities; the ring resolves within a few seconds
 (async case/ring pipeline). Do this before recording, not during.
 
+**Pre-warm the brief for every case you plan to open on camera.** The brief is persisted to the
+database the first time a case is opened (`cases.brief`/`brief_model` — see `docs/FINDINGS.md`
+finding f), but that *first* generation still takes several seconds against a live LLM. Log in as
+`analyst`, open each case you intend to show, and close it — every case-detail view after that
+first one is served straight from the database with no wait. Do this before recording, not during.
+
 Have two browser windows ready: one for the `analyst` login, one for `platform-admin` (Keycloak
 sessions are per-browser-profile, so use a regular window and an incognito/private one rather
 than logging in and out on camera).
@@ -79,10 +85,11 @@ Click into a case (ideally the ring one). Walk through, top to bottom:
   applications," and if it's a ring case, the ring size and detection algorithm
   (`CONNECTED_COMPONENTS`).
 - **Analyst brief** — an LLM-written narrative grounded in the reason codes and graph evidence
-  above it, never the sole basis for a decision. If the brief hasn't generated yet (it's async,
-  off the hot path — can take several seconds, and Gemini's free-tier quota may be exhausted; see
-  `docs/FINDINGS.md`'s Module A note), say so and point at the fallback text instead of waiting on
-  camera.
+  above it, never the sole basis for a decision. It should appear instantly here if you pre-warmed
+  this case above (it's now persisted on first generation and served from the database after
+  that). If you skipped pre-warming, the first view can take several seconds, and Gemini's
+  free-tier quota may be exhausted (see `docs/FINDINGS.md`'s Module A note) — if so, say so and
+  point at the fallback text instead of waiting on camera.
 - **Similar cases** — nearest neighbours by case embedding, when any exist.
 - **Record a label** — pick FRAUD/LEGITIMATE/UNCERTAIN, add a note, save. This is the feedback
   loop the nightly retraining batch (stage 7 in the pipeline table) consumes.
