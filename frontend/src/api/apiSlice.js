@@ -19,9 +19,35 @@ export const apiSlice = createApi({
   tagTypes: ['Case', 'Decision'],
   endpoints: (builder) => ({
     getMe: builder.query({ query: () => '/v1/me' }),
-    getQueueSummary: builder.query({ query: () => '/v1/queue/summary' }),
+    getQueueSummary: builder.query({ query: () => '/v1/queue/summary', providesTags: ['Case'] }),
     getPlatformStatus: builder.query({ query: () => '/v1/platform/status' }),
+    getCases: builder.query({
+      query: ({ status, cursor, limit } = {}) => ({
+        url: '/v1/cases',
+        params: { status: status || undefined, cursor: cursor || undefined, limit },
+      }),
+      providesTags: ['Case'],
+    }),
+    getCaseDetail: builder.query({
+      query: (caseId) => `/v1/cases/${caseId}`,
+      providesTags: (result, error, caseId) => [{ type: 'Case', id: caseId }],
+    }),
+    postCaseLabel: builder.mutation({
+      query: ({ caseId, label, note }) => ({
+        url: `/v1/cases/${caseId}/labels`,
+        method: 'POST',
+        body: { label, note: note || undefined },
+      }),
+      invalidatesTags: (result, error, { caseId }) => [{ type: 'Case', id: caseId }, 'Case'],
+    }),
   }),
 });
 
-export const { useGetMeQuery, useGetQueueSummaryQuery, useGetPlatformStatusQuery } = apiSlice;
+export const {
+  useGetMeQuery,
+  useGetQueueSummaryQuery,
+  useGetPlatformStatusQuery,
+  useGetCasesQuery,
+  useGetCaseDetailQuery,
+  usePostCaseLabelMutation,
+} = apiSlice;

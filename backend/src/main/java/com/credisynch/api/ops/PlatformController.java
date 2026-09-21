@@ -19,13 +19,6 @@ public class PlatformController {
 
     public record PlatformStatus(String service, String status, Instant checkedAt) {}
 
-    @GetMapping("/queue/summary")
-    @PreAuthorize("hasRole('ANALYST')")
-    @Operation(summary = "Analyst-only: case queue summary (populated in phase 2)")
-    public PlatformStatus queueSummary() {
-        return new PlatformStatus("case-queue", "EMPTY", Instant.now());
-    }
-
     @GetMapping("/platform/status")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Admin-only: platform status")

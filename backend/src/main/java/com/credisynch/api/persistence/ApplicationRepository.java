@@ -50,4 +50,16 @@ public class ApplicationRepository {
         jdbc.update("INSERT INTO entity_links (application_id, entity_type, entity_hash) VALUES (?, ?, ?)",
                 applicationId, entityType, entityHash);
     }
+
+    /** Other applications sharing at least one entity with this one - the case detail's evidence trail. */
+    public java.util.List<UUID> findLinkedApplicationIds(UUID applicationId, int withinHours) {
+        return jdbc.query("""
+                SELECT DISTINCT el2.application_id
+                FROM entity_links el1
+                JOIN entity_links el2 ON el2.entity_hash = el1.entity_hash AND el2.application_id != el1.application_id
+                WHERE el1.application_id = ? AND el2.observed_at > now() - make_interval(hours => ?)
+                """,
+                (rs, rowNum) -> rs.getObject(1, UUID.class),
+                applicationId, withinHours);
+    }
 }

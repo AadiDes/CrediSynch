@@ -1,11 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import {
-  useGetMeQuery,
-  useGetQueueSummaryQuery,
-  useGetPlatformStatusQuery,
-} from './api/apiSlice';
+import { useGetMeQuery, useGetPlatformStatusQuery } from './api/apiSlice';
 import { sessionEstablished, selectSession } from './features/session/sessionSlice';
+import CaseQueue from './features/cases/CaseQueue';
+import CaseDetail from './features/cases/CaseDetail';
 import keycloak from './keycloak';
 
 function RoleGatedCard({ title, query, requiredRole }) {
@@ -31,8 +29,9 @@ export default function App() {
   const dispatch = useDispatch();
   const session = useSelector(selectSession);
   const meQuery = useGetMeQuery();
-  const queueQuery = useGetQueueSummaryQuery();
   const platformQuery = useGetPlatformStatusQuery();
+  const [selectedCaseId, setSelectedCaseId] = useState(null);
+  const isAnalyst = session.roles.includes('ANALYST');
 
   useEffect(() => {
     if (meQuery.data) {
@@ -76,9 +75,18 @@ export default function App() {
           </div>
         </section>
 
-        <RoleGatedCard title="Analyst queue (ANALYST)" query={queueQuery} requiredRole="ANALYST" />
         <RoleGatedCard title="Platform status (ADMIN)" query={platformQuery} requiredRole="ADMIN" />
       </div>
+
+      {isAnalyst && (
+        <div className="grid single">
+          {selectedCaseId ? (
+            <CaseDetail caseId={selectedCaseId} onBack={() => setSelectedCaseId(null)} />
+          ) : (
+            <CaseQueue onSelectCase={setSelectedCaseId} />
+          )}
+        </div>
+      )}
     </div>
   );
 }

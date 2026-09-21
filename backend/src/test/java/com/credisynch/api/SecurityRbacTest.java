@@ -5,6 +5,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.credisynch.api.cases.CaseService;
+import com.credisynch.api.cases.CasesController;
 import com.credisynch.api.config.AppProperties;
 import com.credisynch.api.config.SecurityConfig;
 import com.credisynch.api.identity.MeController;
@@ -25,7 +27,7 @@ import org.springframework.test.web.servlet.MockMvc;
  * Authorisation is a contract, so it is tested like one:
  * anonymous is rejected, and each role only reaches its own endpoints.
  */
-@WebMvcTest(controllers = {MeController.class, PlatformController.class},
+@WebMvcTest(controllers = {MeController.class, PlatformController.class, CasesController.class},
         excludeAutoConfiguration = OAuth2ResourceServerAutoConfiguration.class)
 @Import(SecurityConfig.class)
 @EnableConfigurationProperties(AppProperties.class)
@@ -36,6 +38,9 @@ class SecurityRbacTest {
 
     @MockitoBean
     private JwtDecoder jwtDecoder;
+
+    @MockitoBean
+    private CaseService caseService;
 
     @Test
     @DisplayName("anonymous callers are rejected")
