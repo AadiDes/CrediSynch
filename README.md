@@ -3,8 +3,12 @@
 Real-time fraud detection and prevention for digital lending — a working prototype built for the
 Synchrony technology hackathon (problem statement 1).
 
-**Live demo:** http://13.200.182.78 — see [Demo identities](#demo-identities) below for logins,
-and [`docs/DEMO.md`](docs/DEMO.md) for a guided click-through.
+**Live API:** http://13.200.182.78 runs the real decision pipeline on AWS (Postgres/pgvector,
+Keycloak, the Spring Boot API and the FastAPI model service) — see `/actuator/health`,
+`/ml/health` and `/keycloak/realms/credisynch/.well-known/openid-configuration`. The analyst
+console (React) is not deployed there yet; it runs locally against either backend. See
+[Demo identities](#demo-identities) below for logins, and [`docs/DEMO.md`](docs/DEMO.md) for a
+guided click-through.
 
 CrediSynch decides a credit application in one synchronous call, then explains and learns
 asynchronously. Its distinguishing idea: **application fraud is a graph problem wearing a tabular
@@ -61,7 +65,8 @@ infra/               docker-compose (local) and CloudFormation (AWS) - Postgres 
 scripts/             PowerShell helpers: dev-up, verify, get-token, run-*, deploy-aws
 docs/adr/            Architecture decision records
 docs/FINDINGS.md     Phase 5: model quality, fairness, policy calibration, graph/latency/LLM-safety findings
-docs/DEMO.md         Guided click-through of the live demo
+docs/DEMO.md         ~7-minute guided click-through script for the submission recording (local)
+docs/DECK.md         Slide-by-slide content for the submission deck (build in Google Slides)
 ```
 
 ## Prerequisites
