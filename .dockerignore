@@ -1,0 +1,15 @@
+.git
+.github
+.codex
+.agents
+
+**/.pytest_cache
+**/__pycache__
+**/.venv
+**/node_modules
+**/*.pyc
+
+backend/target/*.original
+backend/target/classes
+backend/target/test-classes
+backend/target/*.exec

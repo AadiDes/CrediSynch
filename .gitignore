@@ -18,6 +18,10 @@ data/
 *.parquet
 models/*.txt
 models/*.pkl
+# findings: reproducible from committed scripts (docs/FINDINGS.md), not something to commit
+ml-service/models_baseline/
+ml-service/models_no_age/
+ml-service/findings/output/
 # ide / os
 .idea/
 .vscode/

@@ -1,0 +1,5 @@
+# Findings pipeline (docs/FINDINGS.md, docs/figures/*.png): reuses the training deps for the
+# fairness ablation retrain, plus matplotlib for the plots.
+-r ../requirements-ml.txt
+matplotlib==3.11.2
+requests==2.32.3

@@ -1,0 +1,431 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CrediSynch Phase 2 demo - RDS pgvector and an EC2 Docker Compose host.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: credisynch-phase2
+    AllowedPattern: '[a-zA-Z0-9-]+'
+  PublicHost:
+    Type: String
+    Default: ':80'
+    Description: Caddy site address. Use :80 for the IP demo or a DNS name for automatic HTTPS.
+  Ec2InstanceType:
+    Type: String
+    Default: t3.small
+  DbInstanceClass:
+    Type: String
+    Default: db.t3.micro
+  LlmProvider:
+    Type: String
+    Default: bedrock
+    AllowedValues: [bedrock, gemini]
+    Description: >
+      ADR 0005: "AWS Bedrock or equivalent LLM service". gemini is a temporary substitute while
+      Bedrock model access is pending on this account; switching back is this parameter, not code.
+
+Resources:
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.42.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  VpcGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref Vpc
+
+  PublicSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.42.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.42.11.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.42.12.0/24
+      AvailabilityZone: !Select [1, !GetAZs '']
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: VpcGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRoute:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnetA
+
+  DatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: CrediSynch Phase 2 private database subnets
+      SubnetIds: [!Ref PrivateSubnetA, !Ref PrivateSubnetB]
+
+  DatabaseSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub '${EnvironmentName}/database'
+      GenerateSecretString:
+        SecretStringTemplate: '{"username":"credisynch"}'
+        GenerateStringKey: password
+        PasswordLength: 32
+        ExcludeCharacters: '"@/\\'
+
+  EntityHashSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub '${EnvironmentName}/entity-hash-key'
+      GenerateSecretString:
+        PasswordLength: 48
+        ExcludePunctuation: true
+
+  KeycloakAdminSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub '${EnvironmentName}/keycloak-admin'
+      GenerateSecretString:
+        PasswordLength: 24
+        ExcludeCharacters: '"@/\\'
+
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow PostgreSQL only from the scoring host
+      VpcId: !Ref Vpc
+
+  InstanceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Caddy public edge for CrediSynch
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+
+  DatabaseIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !GetAtt DatabaseSecurityGroup.GroupId
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      SourceSecurityGroupId: !GetAtt InstanceSecurityGroup.GroupId
+
+  Database:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      DBInstanceClass: !Ref DbInstanceClass
+      AllocatedStorage: 20
+      MaxAllocatedStorage: 50
+      StorageType: gp3
+      Engine: postgres
+      EngineVersion: '16'
+      DBName: credisynch
+      MasterUsername: credisynch
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${DatabaseSecret}:SecretString:password}}'
+      DBSubnetGroupName: !Ref DatabaseSubnetGroup
+      VPCSecurityGroups: [!GetAtt DatabaseSecurityGroup.GroupId]
+      PubliclyAccessible: false
+      BackupRetentionPeriod: 1
+      DeletionProtection: false
+
+  BackendRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${EnvironmentName}/backend'
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      EmptyOnDelete: true
+
+  MlRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub '${EnvironmentName}/ml-service'
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      EmptyOnDelete: true
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/credisynch/${EnvironmentName}'
+      RetentionInDays: 7
+
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: phase2-runtime
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                Resource:
+                  - !GetAtt BackendRepository.Arn
+                  - !GetAtt MlRepository.Arn
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource:
+                  - !Ref DatabaseSecret
+                  - !Ref EntityHashSecret
+                  - !Ref KeycloakAdminSecret
+                  # Created out of band (a real API key isn't something to generate), not a CFN
+                  # resource here - wildcard suffix because Secrets Manager appends a random one.
+                  - !Sub 'arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${EnvironmentName}/gemini-api-key-*'
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub '${LogGroup.Arn}:*'
+              - Effect: Allow
+                # Titan embeddings (similar-case search, ADR 0003) and Nova (analyst brief,
+                # ADR 0005). Scoped to the specific models the app uses, not all of Bedrock.
+                # Model access for these still has to be enabled once in the Bedrock console
+                # (account-level EULA/marketplace gate; this policy alone does not grant it).
+                #
+                # The foundation-model resource uses a wildcard region: confirmed live that the
+                # APAC cross-region inference profile actually executes the call in whichever
+                # underlying APAC region Bedrock routes to (observed ap-southeast-2 for an
+                # ap-south-1 caller), and IAM evaluates InvokeModel against that execution region,
+                # not the caller's region - a specific region here would deny every request. This
+                # is the resource AWS documents for cross-region inference profiles.
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource:
+                  - !Sub 'arn:aws:bedrock:${AWS::Region}::foundation-model/amazon.titan-embed-text-v2:0'
+                  - 'arn:aws:bedrock:*::foundation-model/amazon.nova-lite-v1:0'
+                  - 'arn:aws:bedrock:*::foundation-model/amazon.nova-micro-v1:0'
+                  - !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/apac.amazon.nova-lite-v1:0'
+                  - !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/apac.amazon.nova-micro-v1:0'
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref InstanceRole]
+
+  ElasticIp:
+    Type: AWS::EC2::EIP
+    DependsOn: VpcGatewayAttachment
+    Properties:
+      Domain: vpc
+
+  DemoInstance:
+    Type: AWS::EC2::Instance
+    DependsOn: Database
+    Properties:
+      InstanceType: !Ref Ec2InstanceType
+      ImageId: '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64}}'
+      IamInstanceProfile: !Ref InstanceProfile
+      SubnetId: !Ref PublicSubnetA
+      SecurityGroupIds: [!GetAtt InstanceSecurityGroup.GroupId]
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-host'
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euxo pipefail
+          dnf install -y docker jq
+          systemctl enable --now docker
+          systemctl enable --now amazon-ssm-agent || true
+          mkdir -p /usr/local/lib/docker/cli-plugins /opt/credisynch
+          curl -fsSL https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-x86_64 \
+            -o /usr/local/lib/docker/cli-plugins/docker-compose
+          chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+          cat > /opt/credisynch/docker-compose.yml <<'COMPOSE'
+          services:
+            keycloak:
+              image: quay.io/keycloak/keycloak:26.0
+              network_mode: host
+              restart: unless-stopped
+              command: start-dev --import-realm --http-port=8081
+              environment:
+                KC_BOOTSTRAP_ADMIN_USERNAME: admin
+                KC_BOOTSTRAP_ADMIN_PASSWORD: $KEYCLOAK_ADMIN_PASSWORD
+                KC_HTTP_ENABLED: 'true'
+                KC_HEALTH_ENABLED: 'true'
+                KC_HOSTNAME: http://127.0.0.1:8081
+                KC_HOSTNAME_STRICT: 'false'
+              volumes:
+                - /opt/credisynch/realm-credisynch.json:/opt/keycloak/data/import/realm-credisynch.json:ro
+            ml:
+              image: '${MlRepository.RepositoryUri}:latest'
+              network_mode: host
+              restart: unless-stopped
+              logging:
+                driver: awslogs
+                options:
+                  awslogs-region: '${AWS::Region}'
+                  awslogs-group: '${LogGroup}'
+                  awslogs-stream: ml
+            backend:
+              image: '${BackendRepository.RepositoryUri}:latest'
+              network_mode: host
+              restart: unless-stopped
+              environment:
+                DB_URL: jdbc:postgresql://${Database.Endpoint.Address}:5432/credisynch
+                DB_USER: credisynch
+                DB_PASSWORD: $DB_PASSWORD
+                ENTITY_HASH_KEY: $ENTITY_HASH_KEY
+                OIDC_ISSUER_URI: http://127.0.0.1:8081/realms/credisynch
+                ML_BASE_URL: http://127.0.0.1:8000
+                CORS_ALLOWED_ORIGINS: '*'
+                AWS_REGION: '${AWS::Region}'
+                LLM_PROVIDER: '${LlmProvider}'
+                GEMINI_API_KEY: $GEMINI_API_KEY
+              logging:
+                driver: awslogs
+                options:
+                  awslogs-region: '${AWS::Region}'
+                  awslogs-group: '${LogGroup}'
+                  awslogs-stream: backend
+            caddy:
+              image: caddy:2-alpine
+              network_mode: host
+              restart: unless-stopped
+              environment:
+                CADDY_SITE: $CADDY_SITE
+              volumes:
+                - /opt/credisynch/Caddyfile:/etc/caddy/Caddyfile:ro
+                - /opt/credisynch/caddy-data:/data
+                - /opt/credisynch/caddy-config:/config
+              logging:
+                driver: awslogs
+                options:
+                  awslogs-region: '${AWS::Region}'
+                  awslogs-group: '${LogGroup}'
+                  awslogs-stream: caddy
+          COMPOSE
+          cat > /opt/credisynch/Caddyfile <<'CADDY'
+          {$CADDY_SITE} {
+            handle_path /keycloak/* {
+              reverse_proxy 127.0.0.1:8081 {
+                lb_try_duration 30s
+                lb_try_interval 250ms
+              }
+            }
+            handle /api/* {
+              reverse_proxy 127.0.0.1:8080 {
+                lb_try_duration 30s
+                lb_try_interval 250ms
+              }
+            }
+            handle /actuator/health {
+              reverse_proxy 127.0.0.1:8080 {
+                lb_try_duration 30s
+                lb_try_interval 250ms
+              }
+            }
+            handle /ml/* {
+              uri strip_prefix /ml
+              reverse_proxy 127.0.0.1:8000 {
+                lb_try_duration 30s
+                lb_try_interval 250ms
+              }
+            }
+            respond "CrediSynch Phase 2 scoring host" 200
+          }
+          CADDY
+          cat > /opt/credisynch/deploy.sh <<'DEPLOY_SCRIPT'
+          #!/bin/bash
+          set -euo pipefail
+          REGION='${AWS::Region}'
+          export DB_PASSWORD=$(aws secretsmanager get-secret-value --region "$REGION" --secret-id '${DatabaseSecret}' --query SecretString --output text | jq -r .password)
+          export ENTITY_HASH_KEY=$(aws secretsmanager get-secret-value --region "$REGION" --secret-id '${EntityHashSecret}' --query SecretString --output text)
+          export KEYCLOAK_ADMIN_PASSWORD=$(aws secretsmanager get-secret-value --region "$REGION" --secret-id '${KeycloakAdminSecret}' --query SecretString --output text)
+          export CADDY_SITE='${PublicHost}'
+          # Created out of band (not a CFN resource - see the IAM comment above); absent when
+          # running as bedrock, so failure here must not fail the whole deploy.
+          export GEMINI_API_KEY=$(aws secretsmanager get-secret-value --region "$REGION" --secret-id '${EnvironmentName}/gemini-api-key' --query SecretString --output text 2>/dev/null || echo '')
+          aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin '${BackendRepository.RepositoryUri}'
+          docker compose -f /opt/credisynch/docker-compose.yml pull
+          docker compose -f /opt/credisynch/docker-compose.yml up -d
+          docker image prune -f
+          DEPLOY_SCRIPT
+          chmod +x /opt/credisynch/deploy.sh
+
+  ElasticIpAssociation:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt ElasticIp.AllocationId
+      InstanceId: !Ref DemoInstance
+
+Outputs:
+  PublicHost:
+    Value: !Ref PublicHost
+  PublicIp:
+    Value: !Ref ElasticIp
+  ApiUrl:
+    Description: Public Phase 2 API base URL through Caddy
+    Value: !Sub 'http://${ElasticIp}/api'
+  MlHealthUrl:
+    Description: Public ML health URL through Caddy
+    Value: !Sub 'http://${ElasticIp}/ml/health'
+  KeycloakUrl:
+    Description: Public Keycloak base URL through Caddy
+    Value: !Sub 'http://${ElasticIp}/keycloak'
+  InstanceId:
+    Value: !Ref DemoInstance
+  RdsEndpoint:
+    Value: !GetAtt Database.Endpoint.Address
+  BackendRepositoryUri:
+    Value: !GetAtt BackendRepository.RepositoryUri
+  MlRepositoryUri:
+    Value: !GetAtt MlRepository.RepositoryUri
+  LogGroupName:
+    Value: !Ref LogGroup

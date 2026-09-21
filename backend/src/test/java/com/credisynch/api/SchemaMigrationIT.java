@@ -69,4 +69,15 @@ class SchemaMigrationIT {
                 String.class);
         assertThat(constraints).anyMatch(c -> c.contains("APPROVE_RESTRICTED"));
     }
+
+    @Test
+    @DisplayName("the merchant catalog is seeded and trigram-searchable (V2)")
+    void merchantCatalogIsSeeded() {
+        Integer merchantCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM merchants", Integer.class);
+        assertThat(merchantCount).isGreaterThanOrEqualTo(5);
+
+        Double score = jdbcTemplate.queryForObject(
+                "SELECT similarity('CIRCUIT BYTE ELECTRONICS', 'CIRCUIT BYTE ELECTRONICS')", Double.class);
+        assertThat(score).isEqualTo(1.0d);
+    }
 }
