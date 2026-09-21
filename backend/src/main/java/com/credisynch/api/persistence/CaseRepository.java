@@ -93,15 +93,22 @@ public class CaseRepository {
     public Optional<CaseDetailRow> findDetail(UUID caseId) {
         String sql = """
                 SELECT c.id, c.application_id, c.status, c.priority, d.action, d.fraud_probability,
-                       %s AS ring_id, c.opened_at, c.decision_id, d.reason_codes
+                       %s AS ring_id, c.opened_at, c.decision_id, d.reason_codes, c.brief, c.brief_model
                 FROM cases c
                 JOIN decisions d ON d.id = c.decision_id
                 WHERE c.id = ?
                 """.formatted(LATEST_RING_SUBQUERY);
         return jdbc.query(sql, rs -> rs.next()
-                        ? Optional.of(new CaseDetailRow(mapSummary(rs), rs.getObject(9, UUID.class), rs.getString(10)))
+                        ? Optional.of(new CaseDetailRow(mapSummary(rs), rs.getObject(9, UUID.class), rs.getString(10),
+                                rs.getString(11), rs.getString(12)))
                         : Optional.empty(),
                 caseId);
+    }
+
+    /** Persists a brief the first time it's generated, so every later case-detail view is served from
+     * the database instead of re-calling (and re-billing) the LLM on each open. */
+    public void saveBrief(UUID caseId, String brief, String model) {
+        jdbc.update("UPDATE cases SET brief = ?, brief_model = ? WHERE id = ?", brief, model, caseId);
     }
 
     public Optional<RingRow> findRing(UUID ringId) {

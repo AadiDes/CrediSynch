@@ -83,7 +83,7 @@ class CaseServiceTest {
         UUID linkedAppId = UUID.randomUUID();
         CaseSummaryRow summary = summaryRow(caseId);
         String reasonCodesJson = "[{\"code\":\"VELOCITY_6H\",\"feature\":\"velocity_6h\",\"contribution\":0.5,\"direction\":\"INCREASES_RISK\"}]";
-        given(cases.findDetail(caseId)).willReturn(Optional.of(new CaseDetailRow(summary, UUID.randomUUID(), reasonCodesJson)));
+        given(cases.findDetail(caseId)).willReturn(Optional.of(new CaseDetailRow(summary, UUID.randomUUID(), reasonCodesJson, null, null)));
         given(applications.findLinkedApplicationIds(summary.applicationId(), 720)).willReturn(List.of(linkedAppId));
         given(similarCaseFinder.findSimilar(caseId, 5)).willReturn(List.of());
         given(narrativeGenerator.generate(any())).willReturn(Optional.empty());
@@ -95,6 +95,45 @@ class CaseServiceTest {
         assertThat(detail.linkedApplications()).containsExactly(linkedAppId);
         assertThat(detail.brief()).isNull();
         assertThat(detail.briefModel()).isNull();
+        verify(cases, never()).saveBrief(any(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    @DisplayName("a freshly generated brief is persisted once, so the next view doesn't call the LLM again")
+    void freshlyGeneratedBriefIsPersisted() {
+        UUID caseId = UUID.randomUUID();
+        CaseSummaryRow summary = summaryRow(caseId);
+        String reasonCodesJson = "[]";
+        given(cases.findDetail(caseId)).willReturn(Optional.of(new CaseDetailRow(summary, UUID.randomUUID(), reasonCodesJson, null, null)));
+        given(applications.findLinkedApplicationIds(summary.applicationId(), 720)).willReturn(List.of());
+        given(similarCaseFinder.findSimilar(caseId, 5)).willReturn(List.of());
+        given(narrativeGenerator.generate(any()))
+                .willReturn(Optional.of(new CaseNarrativeGenerator.Narrative("brief text", "gemini-3.6-flash")));
+
+        CaseDetailResponse detail = service().detail(caseId).orElseThrow();
+
+        assertThat(detail.brief()).isEqualTo("brief text");
+        assertThat(detail.briefModel()).isEqualTo("gemini-3.6-flash");
+        verify(cases).saveBrief(caseId, "brief text", "gemini-3.6-flash");
+    }
+
+    @Test
+    @DisplayName("a cached brief is served without calling the narrative generator again")
+    void cachedBriefSkipsTheGenerator() {
+        UUID caseId = UUID.randomUUID();
+        CaseSummaryRow summary = summaryRow(caseId);
+        String reasonCodesJson = "[]";
+        given(cases.findDetail(caseId)).willReturn(
+                Optional.of(new CaseDetailRow(summary, UUID.randomUUID(), reasonCodesJson, "cached brief", "gemini-3.6-flash")));
+        given(applications.findLinkedApplicationIds(summary.applicationId(), 720)).willReturn(List.of());
+        given(similarCaseFinder.findSimilar(caseId, 5)).willReturn(List.of());
+
+        CaseDetailResponse detail = service().detail(caseId).orElseThrow();
+
+        assertThat(detail.brief()).isEqualTo("cached brief");
+        assertThat(detail.briefModel()).isEqualTo("gemini-3.6-flash");
+        verify(narrativeGenerator, never()).generate(any());
+        verify(cases, never()).saveBrief(any(), org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyString());
     }
 
     @Test

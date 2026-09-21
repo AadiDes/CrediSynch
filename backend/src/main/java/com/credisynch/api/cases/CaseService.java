@@ -80,20 +80,27 @@ public class CaseService {
         List<CaseSummaryResponse> similarCases = similarCaseFinder.findSimilar(s.caseId(), SIMILAR_CASES_LIMIT)
                 .stream().map(this::toSummary).toList();
 
-        CaseNarrativeGenerator.Context narrativeContext = new CaseNarrativeGenerator.Context(
-                s.caseId(), s.action(), s.fraudProbability(),
-                reasonCodes.stream()
-                        .map(rc -> new CaseNarrativeGenerator.ReasonCodeView(rc.code(), rc.feature(),
-                                rc.contribution(), rc.direction()))
-                        .toList(),
-                linkedApplications);
-        Optional<CaseNarrativeGenerator.Narrative> narrative = narrativeGenerator.generate(narrativeContext);
+        String brief = row.brief();
+        String briefModel = row.briefModel();
+        if (brief == null) {
+            CaseNarrativeGenerator.Context narrativeContext = new CaseNarrativeGenerator.Context(
+                    s.caseId(), s.action(), s.fraudProbability(),
+                    reasonCodes.stream()
+                            .map(rc -> new CaseNarrativeGenerator.ReasonCodeView(rc.code(), rc.feature(),
+                                    rc.contribution(), rc.direction()))
+                            .toList(),
+                    linkedApplications);
+            Optional<CaseNarrativeGenerator.Narrative> narrative = narrativeGenerator.generate(narrativeContext);
+            if (narrative.isPresent()) {
+                brief = narrative.get().brief();
+                briefModel = narrative.get().model();
+                cases.saveBrief(s.caseId(), brief, briefModel);
+            }
+        }
 
         return new CaseDetailResponse(s.caseId(), s.applicationId(), s.status(), s.priority(), s.action(),
                 s.fraudProbability(), s.ringId(), s.openedAt(), reasonCodes, linkedApplications, ring,
-                narrative.map(CaseNarrativeGenerator.Narrative::brief).orElse(null),
-                narrative.map(CaseNarrativeGenerator.Narrative::model).orElse(null),
-                similarCases);
+                brief, briefModel, similarCases);
     }
 
     private RingResponse toRing(RingRow row) {

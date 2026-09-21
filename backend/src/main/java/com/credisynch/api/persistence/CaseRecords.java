@@ -21,7 +21,9 @@ public final class CaseRecords {
     public record CaseDetailRow(
             CaseSummaryRow summary,
             UUID decisionId,
-            String reasonCodesJson) {}
+            String reasonCodesJson,
+            String brief,
+            String briefModel) {}
 
     public record RingRow(UUID ringId, String algorithm, int size, Double density) {}
 
