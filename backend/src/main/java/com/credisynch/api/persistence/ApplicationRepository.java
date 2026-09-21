@@ -75,7 +75,7 @@ public class ApplicationRepository {
     public List<UUID> findConnectedApplicationIds(UUID applicationId) {
         return jdbc.query("""
                 WITH RECURSIVE cluster_apps(application_id) AS (
-                    SELECT application_id FROM entity_links WHERE application_id = ?
+                    SELECT CAST(? AS uuid)
                     UNION
                     SELECT el2.application_id
                     FROM cluster_apps ca
