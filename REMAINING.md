@@ -1,55 +1,54 @@
 # Remaining work
 
-Snapshot as of 2026-09-22. `main` is green on CI (commit `693d073`), pushed to
-`origin/main`. The ring-detection pipeline fix is complete, tested, and verified
-end-to-end locally; it has **not** been deployed to the AWS live demo yet.
+Snapshot as of 2026-09-22, ~16:00 IST. `main` is green on CI (latest commit `49d0f08`), pushed to
+`origin/main`. The recording/submission is done. The ring-detection pipeline fix is complete,
+tested, and verified end-to-end locally.
 
-## Before recording: check these
+## AWS deploy: in progress right now
 
-- **The AWS live demo (`https://13-200-182-78.sslip.io`) does not have the
-  ring-detection fix.** It still has the old code where `rings`/`ring_members`
-  are never populated. If you record against the live URL, a case can show
-  "Graph evidence: shares an identity with N other applications" but will
-  **never** show the "Part of a detected ring" line, no matter what you submit.
-  Either record the analyst-console portion against `localhost:5173` (works
-  correctly today, verified with screenshots) or deploy first with
-  `.\scripts\deploy-aws.ps1` (needs `aws login --profile aadi-dev` first; the
-  session had expired when this was written).
-- **The local demo database has accumulated a lot of test traffic.** This
-  session alone added 56 applications and 7 rings while verifying the fix
-  (including the project's own `graph_ablation.py` seed script). That's good
-  for showing rings, but it also means identities like the demo applicant
-  "Asha Rao" (used by `submit-application.ps1`'s fixed email/address) now
-  look linked to many prior submissions, so the `-Scenario clean` run may
-  come back `REVIEW` instead of a clean `APPROVE` on camera. To get a truly
-  clean demo state:
-  ```powershell
-  docker compose -f infra\docker-compose.yml down -v   # wipes local Postgres/Keycloak data
-  .\scripts\dev-up.ps1
-  # restart backend/ml-service/frontend, then optionally reseed one ring:
-  cd ml-service
-  $env:KEYCLOAK_URL = "http://localhost:8081"; $env:API_BASE_URL = "http://localhost:8080"
-  .\.venv\Scripts\python.exe findings\graph_ablation.py
-  ```
-  This is destructive to local dev data only (all synthetic), not run automatically.
-- **The Analyst Brief will likely show the template fallback, not a live LLM
-  narrative, when recording locally.** `LLM_PROVIDER` defaults to `bedrock`,
-  and this dev machine has no working AWS Bedrock session, so briefs degrade
-  to the deterministic template (confirmed: `briefModel: "template-v1"` in
-  testing). `docs/DEMO.md` already anticipates this exact situation ("say so
-  and point at the fallback text instead of waiting on camera"), so this is
-  safe to talk through rather than something broken. To show a real LLM
-  brief instead, set `LLM_PROVIDER=gemini` in `.env` and restart the backend,
-  but `docs/FINDINGS.md` notes the Gemini free-tier daily quota was already
-  exhausted once this project; it may or may not have reset.
-- **"Similar cases" will mostly show "None found" locally**, for the same
-  reason (embeddings need a working LLM/embedding provider). This is an
-  optional section in `docs/DEMO.md`'s own script, not a required beat.
-- Everything else in `docs/DEMO.md`'s script (the three `submit-application.ps1`
-  scenarios, the queue, reason codes, graph evidence, ring badge, labels, the
-  admin-vs-analyst 403 demonstration) was verified working against the local
-  stack during this session, including a real browser screenshot of the ring
-  badge and case detail.
+Started via `scripts\deploy-aws.ps1` in a separate, visible PowerShell window (still open). It logs
+to `%TEMP%\credisynch-deploy.log`. **This process is independent of any Claude Code session** - it
+keeps running even if this conversation is cleared or closed; check the log file or the terminal
+window directly, or ask a fresh session to check `%TEMP%\credisynch-deploy.log` and pick up from
+here.
+
+Steps, in order, and where it was last observed:
+1. ✅ CloudFormation changeset/stack update (no infra changes, `UPDATE_COMPLETE`)
+2. ✅ Backend Maven package (`BUILD SUCCESS`)
+3. ✅ ECR login
+4. ⏳ Building and pushing the backend Docker image (last observed step)
+5. ⬜ Building and pushing the ml-service Docker image
+6. ⬜ Building and pushing the frontend Docker image
+7. ⬜ SSM command to refresh the EC2 host's running containers (polls for up to 5 minutes)
+
+**Once it finishes**, look for `Phase 2 AWS deployment complete.` in the log, then verify for real,
+don't just trust the log:
+```powershell
+# health checks
+curl https://13-200-182-78.sslip.io/api/actuator/health
+curl https://13-200-182-78.sslip.io/ml/health
+
+# then the actual thing that mattered: submit a linked ring through the LIVE api and confirm
+# a ring badge shows up in the LIVE console at https://13-200-182-78.sslip.io, the same way it
+# was verified locally earlier this session (submit 4 applications sharing a device fingerprint,
+# wait ~5-10s, check the case detail for "Part of a detected ring").
+```
+If the log shows an error instead (ECR push failure, SSM command failure, etc.), the stack itself
+is safe either way, CloudFormation only updates app containers here, not the database, so a failed
+image push just means the live demo keeps running the old code; nothing is broken, just re-run
+`scripts\deploy-aws.ps1` after fixing whatever failed.
+
+**After a successful deploy**, delete the two throwaway helper scripts committed to nothing (not
+tracked in git, safe to just delete): `scripts\_deploy-aws-run.ps1`.
+
+## Demo recording: done
+
+Everything in `docs/DEMO.md`'s script (the three `submit-application.ps1` scenarios, the queue,
+reason codes, graph evidence, ring badge, labels, the admin-vs-analyst 403 demonstration) was
+verified working against a freshly reset local stack right before recording: `clean` correctly came
+back `STEP_UP`, `injection` came back `REVIEW` with `PROMPT_INJECTION_ATTEMPT` in `rulesFired`,
+`replay` printed `PASS`, and 5 clean rings (size 4 each, zero cross-contamination) were seeded and
+confirmed with a real browser screenshot of the queue and a ring case detail.
 
 ## Project-level gaps (pre-existing, documented honestly in `docs/FINDINGS.md`)
 
@@ -115,6 +114,5 @@ they are worth knowing before answering questions on camera:
   endpoint, not actual Spring Batch, and nightly retraining is still
   aspirational (not implemented at all). Worth a small doc correction later;
   left alone this session since it wasn't the ask.
-- AWS deployment: not attempted this session (would rebuild and push three
-  Docker images and redeploy the live EC2 host via SSM; agreed with the user
-  to leave local-only for now and go straight to recording).
+- AWS deployment: in progress, see the top of this file for live status and
+  what to verify once it completes.
