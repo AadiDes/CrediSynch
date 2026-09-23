@@ -9,7 +9,7 @@ cd ml-service
 .\.venv\Scripts\python.exe training\train_baf.py --data C:\data\baf\Base.csv --out models_no_age --exclude-age
 .\.venv\Scripts\python.exe findings\build_findings.py
 
-# Live-system findings (need the deployed stack; see docs/DEMO.md for URLs/logins)
+# Live-system findings (need the deployed stack; see the README for the live URL and demo logins)
 $env:KEYCLOAK_URL = "https://13-200-182-78.sslip.io/keycloak"; $env:API_BASE_URL = "https://13-200-182-78.sslip.io/api"
 .\.venv\Scripts\python.exe findings\graph_ablation.py
 # entity_links export step is manual (SSM/psql - see graph_ablation.py's docstring), then:
@@ -202,9 +202,9 @@ existed as columns in the V1 schema but were never written to.
 and serve it straight from the database on every later view - the numbers above still describe
 the cost of that *first* generation (unavoidable - something has to call the LLM once), but the
 "every view" cost is gone. Not re-measured live after the fix (would need a redeploy of the AWS
-backend, which this submission's live URL doesn't currently need for the recording - see
-`docs/DEMO.md`); the fix is unit-tested (`CaseServiceTest`) and mechanically direct enough that
-re-measuring wasn't judged worth another live load test this close to submission.
+backend, which this submission's live URL doesn't currently need); the fix is unit-tested
+(`CaseServiceTest`) and mechanically direct enough that re-measuring wasn't judged worth another
+live load test this close to submission.
 
 ## Module A: VECTOR descriptor matching
 

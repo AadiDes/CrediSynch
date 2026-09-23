@@ -1,49 +1,43 @@
 # Remaining work
 
-Snapshot as of 2026-09-22, ~16:00 IST. `main` is green on CI (latest commit `49d0f08`), pushed to
+Snapshot as of 2026-09-22, ~20:55 IST. `main` is green on CI (latest commit `49d0f08`), pushed to
 `origin/main`. The recording/submission is done. The ring-detection pipeline fix is complete,
-tested, and verified end-to-end locally.
+tested, and verified end-to-end both locally and now on the live AWS deploy.
 
-## AWS deploy: in progress right now
+## AWS deploy: done, verified live
 
-Started via `scripts\deploy-aws.ps1` in a separate, visible PowerShell window (still open). It logs
-to `%TEMP%\credisynch-deploy.log`. **This process is independent of any Claude Code session** - it
-keeps running even if this conversation is cleared or closed; check the log file or the terminal
-window directly, or ask a fresh session to check `%TEMP%\credisynch-deploy.log` and pick up from
-here.
+The background `scripts\deploy-aws.ps1` run hung twice (~1h45m each time, zero CPU/network
+activity) at "Building and pushing backend image..." when launched in a detached/spawned
+PowerShell window. Root cause was never pinned down precisely (build, ECR login, and push all
+worked fine in isolation and in a direct foreground run), so treat unattended detached-window runs
+of this script with suspicion going forward — prefer running it in a foreground/visible shell you
+can actually watch.
 
-Steps, in order, and where it was last observed:
-1. ✅ CloudFormation changeset/stack update (no infra changes, `UPDATE_COMPLETE`)
-2. ✅ Backend Maven package (`BUILD SUCCESS`)
-3. ✅ ECR login
-4. ⏳ Building and pushing the backend Docker image (last observed step)
-5. ⬜ Building and pushing the ml-service Docker image
-6. ⬜ Building and pushing the frontend Docker image
-7. ⬜ SSM command to refresh the EC2 host's running containers (polls for up to 5 minutes)
+What actually shipped: backend and ml-service images were built/pushed via a direct foreground run
+(interrupted mid-way by Claude Code's background-process reaper reclaiming memory, not a script
+failure); frontend build/push and the CloudFormation/SSM refresh were finished with
+`scripts\deploy-aws.ps1 -SkipImages`, which completed cleanly (`SSM command Success`).
 
-**Once it finishes**, look for `Phase 2 AWS deployment complete.` in the log, then verify for real,
-don't just trust the log:
-```powershell
-# health checks
-curl https://13-200-182-78.sslip.io/api/actuator/health
-curl https://13-200-182-78.sslip.io/ml/health
+Verified for real, not just from the log:
+- `curl https://13-200-182-78.sslip.io/actuator/health` → `{"status":"UP",...}` (note: **not**
+  `/api/actuator/health` — that path 401s because Caddy forwards `/api/*` to the backend with the
+  prefix intact and Spring Security's `permitAll` only covers bare `/actuator/health`; worth fixing
+  this doc/the Caddy route later, not urgent)
+- `curl https://13-200-182-78.sslip.io/ml/health` → `{"status":"UP","model_loaded":true,...}`
+- Submitted 4 applications sharing a device fingerprint through the live API
+  (`https://13-200-182-78.sslip.io/api/v1/applications`) using tokens from the live Keycloak
+  (`scripts\get-token.ps1 applicant applicant123 -BaseUrl https://13-200-182-78.sslip.io/keycloak`).
+  All 4 landed in the same ring (`GET /api/v1/cases/{caseId}` showed a shared `ringId`, `size: 7`
+  after merging with pre-existing linked applications, `algorithm: CONNECTED_COMPONENTS`,
+  `sharedEntities` populated with real counts) — confirms the fix is live and the console's ring
+  badge has real data to render.
 
-# then the actual thing that mattered: submit a linked ring through the LIVE api and confirm
-# a ring badge shows up in the LIVE console at https://13-200-182-78.sslip.io, the same way it
-# was verified locally earlier this session (submit 4 applications sharing a device fingerprint,
-# wait ~5-10s, check the case detail for "Part of a detected ring").
-```
-If the log shows an error instead (ECR push failure, SSM command failure, etc.), the stack itself
-is safe either way, CloudFormation only updates app containers here, not the database, so a failed
-image push just means the live demo keeps running the old code; nothing is broken, just re-run
-`scripts\deploy-aws.ps1` after fixing whatever failed.
-
-**After a successful deploy**, delete the two throwaway helper scripts committed to nothing (not
-tracked in git, safe to just delete): `scripts\_deploy-aws-run.ps1`.
+Throwaway helper script (`scripts\_deploy-aws-run.ps1`, untracked) and a diagnostic ECR test tag
+(`credisynch-phase2/backend:push-sanity-test`, local+remote) have been deleted.
 
 ## Demo recording: done
 
-Everything in `docs/DEMO.md`'s script (the three `submit-application.ps1` scenarios, the queue,
+Everything in the recording script (the three `submit-application.ps1` scenarios, the queue,
 reason codes, graph evidence, ring badge, labels, the admin-vs-analyst 403 demonstration) was
 verified working against a freshly reset local stack right before recording: `clean` correctly came
 back `STEP_UP`, `injection` came back `REVIEW` with `PROMPT_INJECTION_ATTEMPT` in `rulesFired`,

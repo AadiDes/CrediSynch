@@ -8,8 +8,7 @@ Synchrony technology hackathon (problem statement 1).
 
 **Live demo:** https://13-200-182-78.sslip.io, the full analyst console, running against the real decision
 pipeline on AWS (Postgres/pgvector, Keycloak, the Spring Boot API and the FastAPI model service).
-See [Demo identities](#demo-identities) below for logins, and [`docs/DEMO.md`](docs/DEMO.md) for a
-guided click-through.
+See [Demo identities](#demo-identities) below for logins.
 
 ## Table of contents
 
@@ -87,8 +86,6 @@ infra/               docker-compose (local) and CloudFormation (AWS) - Postgres 
 scripts/             PowerShell helpers: dev-up, verify, get-token, run-*, deploy-aws
 docs/adr/            Architecture decision records
 docs/FINDINGS.md     Phase 5: model quality, fairness, policy calibration, graph/latency/LLM-safety findings
-docs/DEMO.md         ~7-minute guided click-through script for the submission recording (local)
-docs/DECK.md         Slide-by-slide content for the submission deck (build in Google Slides)
 ```
 
 ## Prerequisites
